@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notizie · Cambusa del Falcon</title>
+<meta name="description" content="Le notizie di Star Wars dal canale Telegram Star Wars ITA.">
+<meta name="theme-color" content="#03050B">
+<link rel="preload" href="/timeline/font/barlow-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/timeline/font/saira-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Barlow";src:url("/timeline/font/barlow-400.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Barlow";src:url("/timeline/font/barlow-500.woff2") format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Barlow";src:url("/timeline/font/barlow-600.woff2") format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Saira Condensed";src:url("/timeline/font/saira-condensed-600.woff2") format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Saira Condensed";src:url("/timeline/font/saira-condensed-700.woff2") format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Aurebesh";src:url("/timeline/font/Aurebesh.ttf") format("truetype");font-display:swap}
+:root{
+  --bg:#03050B;--panel:rgba(9,14,24,.8);--panel-solid:#090E18;
+  --line:rgba(148,178,206,.15);--line-strong:rgba(148,178,206,.3);
+  --ink:#E2EAF4;--ink-dim:#8B9EB2;--ink-faint:#5F7286;
+  --c:#6FD9FF;--r:11px;
+  --display:"Saira Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark;background:#03050B}
+body{margin:0;min-height:100vh;color:var(--ink);font:16px/1.5 var(--body);-webkit-font-smoothing:antialiased;
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(circle at 23px 31px,rgba(242,247,255,.42) 0 .65px,transparent .95px),
+    radial-gradient(circle at 91px 137px,rgba(193,216,250,.3) 0 .7px,transparent 1px),
+    radial-gradient(circle at 211px 83px,rgba(255,237,207,.24) 0 .75px,transparent 1.1px),
+    radial-gradient(ellipse 85% 50% at 10% 0%,rgba(38,67,112,.25),transparent 66%),
+    radial-gradient(ellipse 70% 45% at 95% 60%,rgba(67,39,91,.16),transparent 68%),
+    linear-gradient(180deg,#080D19 0%,#03050C 40%,#060814 75%,#03050B 100%);
+  background-size:173px 211px,257px 331px,389px 487px,auto,auto,auto;
+  background-attachment:fixed}
+a{color:inherit}
+.wrap{max-width:780px;margin:0 auto;padding:0 20px 90px}
+
+/* intestazione: come la timeline */
+.masthead{padding:38px 0 26px}
+.to-menu{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;padding:8px 14px;border:1px solid rgba(226,234,244,.22);
+  border-radius:6px;background:rgba(9,14,24,.6);color:var(--ink);font:700 14px/1 var(--display);letter-spacing:.06em;
+  text-transform:uppercase;text-decoration:none;transition:border-color .2s,background-color .2s}
+.to-menu:hover{border-color:rgba(226,234,244,.55);background:rgba(20,30,48,.8)}
+.to-menu:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppercase;letter-spacing:.01em;
+  text-shadow:0 0 42px rgba(120,170,230,.28)}
+.aurebesh{margin:8px 0 0;font:14px/1.2 "Aurebesh",var(--display);letter-spacing:.04em;color:var(--ink-faint);opacity:.75}
+.fonte{margin:16px 0 0;color:var(--ink-dim);font-size:15px}
+.fonte a{color:var(--c);text-decoration:none;border-bottom:1px solid rgba(111,217,255,.35)}
+.fonte a:hover{border-bottom-color:var(--c)}
+.riga{height:1px;margin-top:24px;background:linear-gradient(90deg,var(--line-strong),transparent)}
+
+/* notizie */
+.feed{display:flex;flex-direction:column;gap:22px;margin-top:26px}
+.post{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  box-shadow:0 18px 40px -26px rgba(0,0,0,.8)}
+.meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px 0;
+  font:600 14px/1.2 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.meta time{color:var(--c)}
+.meta a{color:var(--ink-faint);text-decoration:none;font-weight:600}
+.meta a:hover{color:var(--ink)}
+.foto{display:grid;gap:4px;margin:14px 0 0}
+.foto.n1{grid-template-columns:1fr}
+.foto.n2{grid-template-columns:1fr 1fr}
+.foto.n3,.foto.n4,.foto.molte{grid-template-columns:repeat(3,1fr)}
+.foto.n4 .ph:first-child{grid-column:1/-1}
+.foto button{all:unset;cursor:zoom-in;display:block;position:relative;background:var(--panel-solid);overflow:hidden}
+.foto button:focus-visible{outline:2px solid var(--c);outline-offset:-2px}
+.foto img{display:block;width:100%;height:100%;object-fit:cover}
+.foto.n1 img{max-height:560px;object-fit:contain;background:#05080f}
+.foto:not(.n1) .ph{aspect-ratio:var(--ar,.8)}
+.foto.n4 .ph:first-child{aspect-ratio:16/9}
+.corpo{padding:14px 18px 18px}
+.titolo{margin:0 0 8px;font:700 22px/1.15 var(--display);text-transform:uppercase;letter-spacing:.005em;color:#F1F6FD}
+.testo{color:#C9D4E1;font-size:15.5px;line-height:1.6;overflow-wrap:anywhere}
+.testo a{color:var(--c);text-decoration:none;border-bottom:1px solid rgba(111,217,255,.3)}
+.testo a:hover{border-bottom-color:var(--c)}
+.testo b,.testo strong{color:var(--ink);font-weight:600}
+.anteprima{display:flex;gap:14px;margin-top:14px;padding:10px;border:1px solid var(--line);border-radius:9px;
+  background:rgba(3,5,11,.5);text-decoration:none;color:inherit;transition:border-color .2s}
+.anteprima:hover{border-color:var(--line-strong)}
+.anteprima .img{position:relative;flex:0 0 168px;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:var(--panel-solid)}
+.anteprima .img img{width:100%;height:100%;object-fit:cover;display:block}
+.anteprima .play{position:absolute;inset:0;display:grid;place-items:center}
+.anteprima .play i{width:44px;height:30px;border-radius:8px;background:rgba(220,30,30,.92);display:grid;place-items:center}
+.anteprima .play i::before{content:"";border-left:12px solid #fff;border-top:7px solid transparent;border-bottom:7px solid transparent;margin-left:3px}
+.anteprima .sito{font:600 12px/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--c)}
+.anteprima .tit{margin-top:4px;font:600 16px/1.25 var(--display);color:var(--ink)}
+.piede{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
+.tag{padding:3px 9px;border:1px solid var(--line);border-radius:999px;color:var(--ink-dim);text-decoration:none;
+  font:600 12px/1.3 var(--display);letter-spacing:.04em}
+.tag:hover{border-color:var(--line-strong);color:var(--ink)}
+.viste{margin-left:auto;color:var(--ink-faint);font:500 13px/1 var(--display);letter-spacing:.03em}
+.altre{display:block;margin:30px auto 0;padding:11px 22px;border:1px solid var(--line-strong);border-radius:8px;
+  background:rgba(9,14,24,.75);color:var(--ink);font:700 15px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.altre:hover{border-color:rgba(226,234,244,.55)}
+.altre[hidden]{display:none}
+.stato{margin:40px 0;color:var(--ink-dim);text-align:center}
+
+/* foto ingrandita */
+.lightbox{position:fixed;inset:0;z-index:50;display:none;place-items:center;padding:24px;background:rgba(2,4,9,.92);cursor:zoom-out}
+.lightbox.aperta{display:grid}
+.lightbox img{max-width:100%;max-height:100%;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+
+@media (max-width:560px){
+  .wrap{padding:0 14px 80px}
+  .masthead{padding:30px 0 20px}
+  .meta{padding:12px 14px 0}
+  .corpo{padding:12px 14px 16px}
+  .titolo{font-size:20px}
+  .testo{font-size:15px}
+  .anteprima{flex-direction:column}
+  .anteprima .img{flex:none;width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <a class="to-menu" href="/" aria-label="Torna al menu di Cambusa del Falcon">&#8592; Menu</a>
+    <h1>Notizie</h1>
+    <p class="aurebesh" aria-hidden="true" translate="no">Notizie</p>
+    <p class="fonte">Dal canale Telegram <a href="https://t.me/starwarsita" target="_blank" rel="noopener">Star Wars ITA</a>.</p>
+    <div class="riga"></div>
+  </header>
+  <main class="feed" id="feed" aria-live="polite"><p class="stato">Caricamento delle notizie…</p></main>
+  <button class="altre" id="altre" type="button" hidden>Carica altre notizie</button>
+</div>
+<div class="lightbox" id="lightbox" role="dialog" aria-label="Foto ingrandita"><img alt=""></div>
+
+<script>
+(function(){
+  const CANALE = "starwarsita", MAX_NOTIZIE = 20, PASSO = 20;
+  const feed = document.getElementById("feed"), altre = document.getElementById("altre");
+  const lb = document.getElementById("lightbox"), lbImg = lb.querySelector("img");
+  const fmtData = new Intl.DateTimeFormat("it-IT",{day:"numeric",month:"long",year:"numeric"});
+  const fmtOra = new Intl.DateTimeFormat("it-IT",{hour:"2-digit",minute:"2-digit"});
+  const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  let notizie = [], mostrate = 0;
+
+  /* Nel canale foto e testo di una notizia sono due messaggi a pochi secondi
+     di distanza: qui diventano una sola notizia. */
+  function raggruppa(messaggi){
+    const asc = [...messaggi].sort((a,b)=>a.id-b.id), out = [];
+    for(let i=0;i<asc.length;i++){
+      const m = asc[i], n = asc[i+1];
+      if(m.foto.length && !m.testo && n && n.testo && !n.foto.length
+         && (new Date(n.data)-new Date(m.data)) < 3*60*1000){
+        out.push({id:n.id, ids:[m.id,n.id], data:n.data, testo:n.testo, foto:m.foto, link:n.link||m.link, viste:""});
+        i++;
+      } else out.push({id:m.id, ids:[m.id], data:m.data, testo:m.testo, foto:m.foto, link:m.link, viste:""});
+    }
+    return out.reverse();
+  }
+
+  /* prima riga tutta in maiuscolo = titolo; gli hashtag diventano etichette */
+  function dividi(html){
+    const box = document.createElement("div"); box.innerHTML = html || "";
+    const tag = [];
+    box.querySelectorAll('a[href*="?q=%23"]').forEach(a=>{ tag.push({testo:a.textContent, href:a.href}); a.remove(); });
+    let parti = box.innerHTML.replace(/(<br\s*\/?>\s*)+$/i,"").trim();
+    let titolo = "";
+    const m = parti.match(/^([^<]*?)<br\s*\/?>/i);
+    const prima = m ? m[1] : (/<br/i.test(parti) ? "" : parti);
+    const lettere = prima.replace(/[^A-Za-zÀ-ÿ]/g,"");
+    if(prima && lettere.length >= 4 && lettere === lettere.toUpperCase() && prima.length < 160){
+      titolo = prima; parti = m ? parti.slice(m[0].length) : "";
+    }
+    parti = parti.replace(/^(\s*<br\s*\/?>)+/i,"").replace(/(<br\s*\/?>\s*){3,}/gi,"<br><br>");
+    return {titolo, corpo:parti, tag};
+  }
+
+  function htmlFoto(foto){
+    if(!foto.length) return "";
+    const cl = foto.length===1?"n1":foto.length===2?"n2":foto.length===3?"n3":foto.length===4?"n4":"molte";
+    const ar = Math.min(1.78, Math.max(.8, foto.reduce((a,f)=>a+f.w/f.h,0)/foto.length));
+    return `<div class="foto ${cl}" style="--ar:${ar.toFixed(3)}">${foto.map(f=>`<button class="ph" type="button" aria-label="Ingrandisci la foto" data-src="${esc(f.src)}"><img src="${esc(f.src)}" width="${f.w}" height="${f.h}" alt="" loading="lazy" decoding="async"></button>`).join("")}</div>`;
+  }
+  function htmlLink(l){
+    if(!l || !l.url) return "";
+    const img = l.immagine ? `<span class="img"><img src="${esc(l.immagine)}" alt="" loading="lazy">${l.youtube?'<span class="play"><i></i></span>':''}</span>` : "";
+    return `<a class="anteprima" href="${esc(l.url)}" target="_blank" rel="noopener">${img}<span><span class="sito">${esc(l.sito||new URL(l.url).hostname)}</span><span class="tit" style="display:block">${esc(l.titolo||l.url)}</span></span></a>`;
+  }
+  function htmlNotizia(n){
+    const d = new Date(n.data), {titolo, corpo, tag} = dividi(n.testo);
+    return `<article class="post" id="post-${n.id}">
+      <div class="meta"><time datetime="${esc(n.data)}">${fmtData.format(d)} · ${fmtOra.format(d)}</time>
+        <a href="https://t.me/${CANALE}/${n.id}" target="_blank" rel="noopener">Telegram ↗</a></div>
+      ${htmlFoto(n.foto)}
+      ${(titolo||corpo||n.link||tag.length||n.viste) ? `<div class="corpo">
+        ${titolo?`<h2 class="titolo">${titolo}</h2>`:""}
+        ${corpo?`<div class="testo">${corpo}</div>`:""}
+        ${htmlLink(n.link)}
+        ${(tag.length||n.viste)?`<div class="piede">${tag.map(t=>`<a class="tag" href="${esc(t.href)}" target="_blank" rel="noopener">${esc(t.testo)}</a>`).join("")}${n.viste?`<span class="viste">${esc(n.viste)} visualizzazioni</span>`:""}</div>`:""}
+      </div>` : ""}
+    </article>`;
+  }
+  function mostraAltre(){
+    const pezzo = notizie.slice(mostrate, mostrate+PASSO);
+    feed.insertAdjacentHTML("beforeend", pezzo.map(htmlNotizia).join(""));
+    mostrate += pezzo.length;
+    altre.hidden = mostrate >= notizie.length;
+  }
+  altre.addEventListener("click", mostraAltre);
+  feed.addEventListener("click", e=>{
+    const b = e.target.closest(".ph"); if(!b) return;
+    lbImg.src = b.dataset.src; lb.classList.add("aperta");
+  });
+  lb.addEventListener("click", ()=>{ lb.classList.remove("aperta"); lbImg.removeAttribute("src"); });
+  addEventListener("keydown", e=>{ if(e.key==="Escape") lb.click(); });
+
+  fetch("posts.json?v=" + Math.floor(Date.now()/300000), {cache:"no-cache"})
+    .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(d=>{ notizie = raggruppa(d.messaggi).slice(0, MAX_NOTIZIE); feed.innerHTML = ""; mostraAltre();
+      const h = location.hash && document.getElementById(location.hash.slice(1)); if(h) h.scrollIntoView({block:"start"}); })
+    .catch(()=>{ feed.innerHTML = '<p class="stato">Notizie non disponibili al momento. Puoi leggerle direttamente sul <a href="https://t.me/starwarsita" target="_blank" rel="noopener">canale Telegram</a>.</p>'; });
+})();
+</script>
+  <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "622c8edc4b314623a9588081a9192323"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

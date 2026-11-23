@@ -92,6 +92,26 @@ dd{font-family:var(--f-display);font-weight:600;font-size:24px;line-height:1.2;c
 
 footer{position:relative;z-index:2;border-top:1px solid var(--line);color:var(--ink-dim);font-size:11.5px;letter-spacing:.06em}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:18px;padding-bottom:22px}
+/* sezione notizie (sopra Timeline e HOLOMAP) */
+.news{position:relative;margin:0 0 28px;background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--holo);
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.news-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:22px 28px 6px}
+.news-head h2{font-size:34px}
+.news-head .go{margin:0;padding:0}
+.news-head .go a{font-family:var(--f-display);font-size:13px;padding:9px 16px;border:1px solid var(--holo);color:var(--holo);
+  letter-spacing:.18em;text-transform:uppercase;text-decoration:none;transition:background-color .2s,color .2s;white-space:nowrap}
+.news-head .go a:hover,.news-head .go a:focus-visible{background:var(--holo);color:var(--void)}
+.news-desc{padding:0 28px;color:var(--ink-dim)}
+.news-list{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:18px;background:var(--line);border-top:1px solid var(--line)}
+.news-item{display:flex;flex-direction:column;background:rgba(3,10,18,.9);text-decoration:none;color:inherit;min-width:0;transition:background-color .2s}
+.news-item:hover{background:rgba(8,24,38,.95)}
+.news-item .thumb{aspect-ratio:16/9;background:#05080f center/cover no-repeat;border-bottom:1px solid var(--line)}
+.news-item .txt{padding:12px 16px 16px}
+.news-item time{display:block;font:500 11px/1.2 var(--f-data);letter-spacing:.12em;text-transform:uppercase;color:var(--holo)}
+.news-item b{display:block;margin-top:6px;font:700 17px/1.2 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;color:#eafaff;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:900px){.news-list{grid-template-columns:1fr}.news-item{flex-direction:row}.news-item .thumb{flex:0 0 38%;aspect-ratio:16/10;border-bottom:0;border-right:1px solid var(--line)}}
+@media (max-width:560px){.news-head{padding:18px 18px 4px}.news-head h2{font-size:28px}.news-desc{padding:0 18px}.news-item .txt{padding:10px 12px}.news-item b{font-size:15px}}
 
 /* entrata: una sola, la linea di scansione sul titolo */
 @keyframes sweep{from{transform:translateY(-30vh);opacity:0}15%{opacity:.9}to{transform:translateY(80vh);opacity:0}}
@@ -158,6 +178,14 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
 
 </header>
 
+<section class="wrap" aria-labelledby="titolo-notizie">
+  <div class="news">
+    <div class="news-head"><h2 id="titolo-notizie">NOTIZIE</h2><div class="go"><a href="/notizie/">Tutte le notizie</a></div></div>
+    <p class="news-desc">Le ultime dal canale Telegram Star Wars ITA.</p>
+    <div class="news-list" id="news-list"></div>
+  </div>
+</section>
+
 <main class="wrap doors">
   <div class="door tl">
     <div class="viz" aria-hidden="true">
@@ -216,6 +244,26 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
     var t=document.createElement('span');t.style.setProperty('--c',c);if(i===0)t.className='on';t.innerHTML='<em></em><s></s>';t.title=N[i];q('.eras').appendChild(t);
     var a=document.createElement('i');a.style.setProperty('--c',c);a.innerHTML='<b></b>';q('.axis').appendChild(a);
   });
+})();
+</script>
+  <script>
+(function(){
+  const box=document.getElementById("news-list"); if(!box) return;
+  const fmt=new Intl.DateTimeFormat("it-IT",{day:"numeric",month:"long",year:"numeric"});
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  function titolo(html){
+    const d=document.createElement("div"); d.innerHTML=(html||"").split(/<br\s*\/?>/i)[0]; return d.textContent.trim();
+  }
+  fetch("/notizie/posts.json",{cache:"no-cache"}).then(r=>r.json()).then(d=>{
+    const asc=[...d.messaggi].sort((a,b)=>a.id-b.id), out=[];
+    for(let i=0;i<asc.length;i++){ const m=asc[i], n=asc[i+1];
+      if(m.foto.length && !m.testo && n && n.testo && !n.foto.length && (new Date(n.data)-new Date(m.data))<180000){ out.push({id:n.id,data:n.data,testo:n.testo,foto:m.foto,link:n.link}); i++; }
+      else out.push(m); }
+    const ultime=out.reverse().filter(n=>titolo(n.testo)).slice(0,3);
+    box.innerHTML=ultime.map(n=>{ let img=(n.foto[0]&&n.foto[0].src)||(n.link&&n.link.immagine)||""; if(img&&!/^https?:/.test(img)) img="/notizie/"+img;
+      return `<a class="news-item" href="/notizie/#post-${n.id}"><span class="thumb" style="${img?`background-image:url('${esc(img)}')`:""}"></span>
+        <span class="txt"><time datetime="${esc(n.data)}">${fmt.format(new Date(n.data))}</time><b>${esc(titolo(n.testo))}</b></span></a>`; }).join("");
+  }).catch(()=>{ box.outerHTML='<p class="news-desc" style="padding-bottom:20px">Notizie non disponibili al momento.</p>'; });
 })();
 </script>
   <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "622c8edc4b314623a9588081a9192323"}'></script><!-- End Cloudflare Web Analytics -->
