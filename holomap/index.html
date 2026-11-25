@@ -2849,7 +2849,7 @@ void main(){vec4 mk=texture2D(uM,(vMap-uB.xy)/uB.zw);vec2 dv=vMap-uC;float r0=le
   float tap=m*m*(3.0-2.0*m);           // i filamenti si assottigliano verso i bordi invece di finire tagliati
   float edge=0.0;float free=1.0;      // il Caos continua anche nello spazio chiss
   vec3 c=mix(vec3(.38,.50,1.0),vec3(.85,.48,1.0),w.x);
-  vec3 cc=mix(vec3(.18,.34,.85),vec3(.26,.66,.88),smoothstep(.35,.65,w.y));cc=mix(cc,vec3(.80,.22,.18),smoothstep(.58,.72,t1)*.6);c=mix(c,cc,ch*.85);
+  vec3 cc=mix(vec3(.18,.34,.85),vec3(.26,.66,.88),smoothstep(.35,.65,w.y));cc=mix(cc,vec3(.80,.22,.18),smoothstep(.58,.72,t1)*.6);c=mix(c,cc,ch*0.0);  /* giro 1539 (Pietro: «quella macchia azzurra sopra lo spazio chiss è orrenda»): niente tinta azzurra sullo spazio chiss */
   // struttura (resta anche da vicino, ma diventa nebbia)
   float hz=0.0;vec2 dh=vMap-vec2(400.0,915.0),dh2=vMap-vec2(428.0,833.0);float hf=max(exp(-dot(dh,dh)/5200.0),exp(-dot(dh2,dh2)/7600.0));float base=m*free*(1.0+.45*hf)*(.07+.16*hz+(.20+.10*hz)*cloud+.26*cloud*cloud+.20*sw*cloud)+m*edge*cloud*.18;
   // effetti dinamici: filamenti con impulsi che scorrono, lampi che illuminano le nubi e scariche ramificate
