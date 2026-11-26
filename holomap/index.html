@@ -2701,6 +2701,20 @@ cone.position.y=1;scene.add(cone);
 
 // ---- l'ologramma (tutto in un gruppo, così tremola insieme)
 const holo=new T.Group();scene.add(holo);
+// prova prestazioni (giro 1541): geometrie con lo stesso materiale unite in una sola (una chiamata di disegno invece di centinaia).
+// mergeG unisce geometrie (indicizzate o no) con gli stessi attributi; le posizioni sono già nello spazio dell'oggetto che le disegna.
+function mergeG(list){const L=list.filter(g=>g&&g.attributes.position&&g.attributes.position.count);if(!L.length)return new T.BufferGeometry();
+  const names=Object.keys(L[0].attributes).filter(n=>L.every(g=>g.attributes[n]&&g.attributes[n].itemSize===L[0].attributes[n].itemSize));
+  const out=new T.BufferGeometry();let nv=0;for(const g of L)nv+=g.attributes.position.count;
+  for(const n of names){const sz=L[0].attributes[n].itemSize,A=new Float32Array(nv*sz);let o=0;for(const g of L){const at=g.attributes[n];if(at.isInterleavedBufferAttribute){for(let i=0;i<at.count;i++)for(let c=0;c<sz;c++)A[o++]=at.getComponent?at.getComponent(i,c):[at.getX(i),at.getY(i),at.getZ(i),at.getW(i)][c]}else{A.set(at.array.subarray(0,at.count*sz),o);o+=at.count*sz}}out.setAttribute(n,new T.BufferAttribute(A,sz))}
+  let base=0;const anyI=L.some(g=>g.index);if(anyI){let ni=0;for(const g of L)ni+=g.index?g.index.count:g.attributes.position.count;const I=nv>65535?new Uint32Array(ni):new Uint16Array(ni);let k=0;
+    for(const g of L){if(g.index){const a=g.index.array;for(let i=0;i<g.index.count;i++)I[k++]=a[i]+base}else for(let i=0;i<g.attributes.position.count;i++)I[k++]=i+base;base+=g.attributes.position.count}out.setIndex(new T.BufferAttribute(I,1))}
+  for(const g of L)g.dispose();return out}
+// veli dei settori: uno per colore/opacità (fusione additiva: l'ordine non conta, il risultato è identico)
+const FILLQ=new Map();function qFill(geo,color,opacity){const c=new T.Color(color),k=c.getHexString()+'|'+opacity;let q=FILLQ.get(k);
+  if(!q){const m=new T.Mesh(new T.BufferGeometry(),new T.MeshBasicMaterial({color:c,transparent:true,opacity,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}));m.rotation.x=Math.PI/2;m.position.y=.02;m.userData.fill=1;holo.add(m);q={m,g:[]};FILLQ.set(k,q)}
+  q.g.push(geo);return q.m}
+function flushFills(){for(const q of FILLQ.values()){q.m.geometry=mergeG(q.g);q.g=null}FILLQ.clear()}
 const lineMat=new T.LineBasicMaterial({vertexColors:true,transparent:true,blending:T.AdditiveBlending,depthWrite:false});
 function polyline(pts,color,alpha,h=0,closed=false){const P3=[],C=[];const col=new T.Color(color);
   const arr=closed?[...pts,pts[0]]:pts;for(const [x,y] of arr){P3.push(...P(x,y,h).toArray());const f=fade(x,y)*alpha;C.push(col.r*f,col.g*f,col.b*f)}
@@ -2782,7 +2796,7 @@ LBT=LS;(DATA.coreSectors||[]).forEach((s,k)=>{coreName[s.id]=s.nc?'Nessuno':s.na
   const tone=new T.Color(s.nc?'#3f7f9e':_pal[k%3]);
   for(const part of s.parts){for(const L of part)grp.add(polyline(L,tone.getStyle(),s.nc?.3:.42,.05,true));
     const shp=new T.Shape(part[0].map(([x,y])=>new T.Vector2(x-CX,y-CY)));for(const h of part.slice(1))shp.holes.push(new T.Path(h.map(([x,y])=>new T.Vector2(x-CX,y-CY))));
-    const fill=new T.Mesh(new T.ShapeGeometry(shp),new T.MeshBasicMaterial({color:tone,transparent:true,opacity:s.nc?.025:.05,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}));fill.rotation.x=Math.PI/2;fill.position.y=.02;grp.add(fill)}
+    qFill(new T.ShapeGeometry(shp),tone,s.nc?.025:.05)}
   WALLS.push({loops:s.parts.map(p=>p[0]),col:tone,grp});
   if(!s.nc)for(const q of (s.plabels||[s.label])){const d=document.createElement('div');d.className='sec core';d.textContent=s.name;const o=new T.CSS2DObject(d);d._obj=o;o.position.copy(P(q[0],q[1],0));d._cands=[P(q[0],q[1],0)];grp.add(o)}  /* giro 1069: un nome per ogni parte del settore che ha dei sistemi */});
 // giro 1164 (Pietro: «lo sfondo dello Spazio Hutt da vicino non è come nelle regioni interne»): lo Spazio Hutt non ha settori;
@@ -2790,7 +2804,7 @@ LBT=LS;(DATA.coreSectors||[]).forEach((s,k)=>{coreName[s.id]=s.nc?'Nessuno':s.na
 if(DATA.huttFill&&DATA.huttFill[0]){const grp=new T.Group();holo.add(grp);const tone=new T.Color('#e0607a');
   for(const L of DATA.huttFill)grp.add(polyline(L,tone.getStyle(),.42,.05,true));
   const shp=new T.Shape(DATA.huttFill[0].map(([x,y])=>new T.Vector2(x-CX,y-CY)));
-  const fill=new T.Mesh(new T.ShapeGeometry(shp),new T.MeshBasicMaterial({color:tone,transparent:true,opacity:.05,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}));fill.rotation.x=Math.PI/2;fill.position.y=.02;grp.add(fill);
+  qFill(new T.ShapeGeometry(shp),tone,.05);
   WALLS.push({loops:[DATA.huttFill[0]],col:tone,grp})}
 // settori vicini (contorni tenui) e i due settori del Nucleo (contorno, velo, muro di luce basso)
 for(const s of DATA.neighbors){for(const L of s.loops)holo.add(polyline(L,'#4fa3c8',.5,0,true));
@@ -2800,8 +2814,7 @@ for(const s of DATA.sectors){if(s.id==='non-catalogato-14')continue;  // giro 94
   for(const L of s.loops){grp.add(polyline(L,COL_DEEP,.5,.05,true))}
   // velo: forma con i buchi (il Non catalogato ha Koros come buco)
   const shp=new T.Shape(s.loops[0].map(([x,y])=>new T.Vector2(x-CX,y-CY)));for(const h of s.loops.slice(1))shp.holes.push(new T.Path(h.map(([x,y])=>new T.Vector2(x-CX,y-CY))));
-  const fill=new T.Mesh(new T.ShapeGeometry(shp),new T.MeshBasicMaterial({color:0xdfe6f5,transparent:true,opacity:.045,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}));
-  fill.rotation.x=Math.PI/2;fill.position.y=.02;grp.add(fill);
+  qFill(new T.ShapeGeometry(shp),0xdfe6f5,.045);
   // muro di luce lungo il confine di Koros
   WALLS.push({loops:[s.loops[0]],col:new T.Color(COL_DEEP),grp});
   if(/^non-catalogato/.test(s.id))continue;  // giro 1175: anche Cosian Space ha il nome (prima solo Koros)  // giro 927 (Pietro: «rimuovi la scritta Non catalogato in grande»)
@@ -3162,7 +3175,7 @@ const NEU=new T.Color('#b4c3d0');let neuL=null;
 function eraNeutral(on){document.body.classList.toggle('era-on',on);
   if(!neuL){neuL=[];const seen=new Set(),grey=a=>{const b=a.slice();for(let i=0;i<b.length;i+=3){const l=.3*a[i]+.59*a[i+1]+.11*a[i+2];b[i]=l*.86;b[i+1]=l*.96;b[i+2]=l*1.06}return b};
     const visit=x=>{if(seen.has(x))return;seen.add(x);if(!(x.isMesh||x.isLineSegments)||!x.material||x.material.isShaderMaterial)return;
-      if(x.isMesh&&x.geometry.type==='ShapeGeometry'){neuL.push({x,k:'hide'});return}
+      if(x.isMesh&&(x.geometry.type==='ShapeGeometry'||x.userData.fill)){neuL.push({x,k:'hide'});return}  /* giro 1541: anche i veli uniti */
       if(regGlow.includes(x))return;
       const a=x.geometry.attributes.color;if(a&&x.material.vertexColors){neuL.push({x,k:'attr',a0:a.array.slice(),a1:grey(a.array)});return}
       if(x.material.color)neuL.push({x,k:'col',c0:x.material.color.clone()})};
@@ -3315,6 +3328,9 @@ order.forEach((r,ri)=>{const grp=new T.Group();holo.add(grp);const col=routeCol(
     // ogni tratto si divide dove cambia il gruppo di rotte; i tratti comuni li disegna solo la prima rotta del gruppo
     const parts=[];for(const sg of segs){const loc=[];let cur=[sg[0]];for(let i=1;i<sg.length;i++){const q=sg[i];if(q.k!==cur[cur.length-1].k){cur.push(q);loc.push(cur);cur=[q]}else cur.push(q)}if(cur.length>1)loc.push(cur);
       loc.forEach(p=>{p.kk=p[Math.floor(p.length/2)].k});loc.forEach((p,i)=>{if(i)p.prevK=loc[i-1].kk;if(i<loc.length-1)p.nextK=loc[i+1].kk});parts.push(...loc)}
+    /* giro 1541: i tratti propri consecutivi di una rotta (stesso materiale) si uniscono in un solo tubo, nello stesso ordine di disegno;
+       le guaine di luce (fusione additiva) in una per colore e velocità, con la ripetizione della trama già nelle coordinate */
+    const RUN={m:null,g:[]},SHQ=new Map(),flushRun=()=>{if(RUN.m){RUN.m.geometry=mergeG(RUN.g);RUN.m=null;RUN.g=[]}};if(grp.userData.flush)grp.userData.flush();grp.userData.flush=()=>{flushRun();for(const q of SHQ.values())q.m.geometry=mergeG(q.g);SHQ.clear()};
     for(const sgm of parts){const kk=sgm[Math.floor(sgm.length/2)].k,grp_=kk.split('|');if(grp_[0]!==r.name)continue;const shared=grp_.length>1;
       // giro 952: niente monconi: un pezzetto proprio della rotta, corto, che parte da una tappa non si disegna (la rotta lì è già nel tubo a strisce)
       if(!shared){let L=0;for(let i=1;i<sgm.length;i++)L+=Math.hypot(sgm[i].x-sgm[i-1].x,sgm[i].y-sgm[i-1].y);
@@ -3338,16 +3354,18 @@ order.forEach((r,ri)=>{const grp=new T.Group();holo.add(grp);const col=routeCol(
       const pa=tube.attributes.position,C=new Float32Array(pa.count*3);for(let k=0;k<pa.count;k++){const f=fade(pa.getX(k)/S+CX,pa.getZ(k)/S+CY);C[k*3]=cb.r*f;C[k*3+1]=cb.g*f;C[k*3+2]=cb.b*f}
       if(shared){const pa2=tube.attributes.position;for(let k=0;k<pa2.count;k++){const f=fade(pa2.getX(k)/S+CX,pa2.getZ(k)/S+CY);C[k*3]=C[k*3+1]=C[k*3+2]=f}}
       tube.setAttribute('color',new T.BufferAttribute(C,3));
-      if(shared){const cols=grp_.map(n=>routeCol(DATA.routes.find(x=>x.name===n)).clone().lerp(new T.Color('#ffffff'),.18).getStyle());
+      if(shared){flushRun();const cols=grp_.map(n=>routeCol(DATA.routes.find(x=>x.name===n)).clone().lerp(new T.Color('#ffffff'),.18).getStyle());
         const tx=cTex((g,w,h)=>{const N=cols.length*2;for(let x=0;x<w;x++)for(let y=0;y<h;y++){g.fillStyle=cols[((Math.floor((x/w+y/h)*N)%N)+N)%N%cols.length];g.fillRect(x,y,1,1)}},64,64);
         tx.wrapS=tx.wrapT=T.RepeatWrapping;tx.repeat.set(Math.max(1,curve.getLength()/1.6),1);  /* giro 1065: le strisce stanno ferme, il flusso lo fa la guaina di luce (stessa velocità ovunque) */
         const tm=new T.Mesh(tube,majM(rwM(new T.MeshBasicMaterial({map:tx,vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=grp_;routePick.push(tm);grp.add(tm)}
+      else if(!LEG.has(r.name)){if(!RUN.m){const tm=new T.Mesh(tube,majM(rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=[r.name];routePick.push(tm);grp.add(tm);RUN.m=tm}RUN.g.push(tube)}
       else{const tm=new T.Mesh(tube,LEG.has(r.name)?rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.9,blending:T.AdditiveBlending,depthWrite:false}),RW_HOLO):majM(rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=[r.name];routePick.push(tm);grp.add(tm);if(LEG.has(r.name)){const R1=R0*2.8,hg=rwR(new T.TubeGeometry(curve,Math.min(900,sgm.length*3),R1,8,false),R1);hg.setAttribute('color',tube.attributes.color);const hm=new T.Mesh(hg,rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.13,blending:T.AdditiveBlending,depthWrite:false})));hm.renderOrder=tm.renderOrder-.1;grp.add(hm)}}
       // giro 1065 (Pietro: «rendi più evidenti i flussi delle rotte; ora hanno velocità diverse lungo i tratti»): guaina di luce con tratti
       // luminosi ogni FLOW_P unità che scorrono a FLOW_V unità al secondo su tutte le rotte e su tutti i tratti
-      if(!LEG.has(r.name)){const Lc=curve.getLength(),sh=rwR(new T.TubeGeometry(curve,Math.min(900,sgm.length*3),(r.major?.36:.3)*.7*1.32,8,false),(r.major?.36:.3)*.7*1.32),ftx=flowTex.clone();ftx.needsUpdate=true;ftx.wrapS=ftx.wrapT=T.RepeatWrapping;ftx.repeat.set(Math.max(1,Lc/FLOW_P),1);
+      if(!LEG.has(r.name)){const Lc=curve.getLength(),sh=(()=>{/* giro 1541: la guaina ha lo stesso tracciato e gli stessi segmenti del tubo: si ricava dal tubo spostando i vertici lungo la normale (niente secondo calcolo della curva) */const R2=(r.major?.36:.3)*.7*1.32,dR=R2-R0,g=new T.BufferGeometry(),P0=tube.attributes.position.array,N0=tube.attributes.normal.array,PA=new Float32Array(P0.length);for(let i=0;i<PA.length;i++)PA[i]=P0[i]+N0[i]*dR;g.setAttribute('position',new T.BufferAttribute(PA,3));g.setAttribute('normal',tube.attributes.normal.clone());g.setAttribute('uv',tube.attributes.uv.clone());g.setIndex(tube.index.clone());return rwR(g,R2)})(),ftx=flowTex.clone();ftx.needsUpdate=true;ftx.wrapS=ftx.wrapT=T.RepeatWrapping;ftx.repeat.set(Math.max(1,Lc/FLOW_P),1);
         const fc=shared?new T.Color('#e8f4ff'):col.clone().lerp(new T.Color('#ffffff'),.4);
-        const fm=new T.Mesh(sh,rwM(new T.MeshBasicMaterial({map:ftx,color:fc,transparent:true,opacity:.5,blending:T.AdditiveBlending,depthWrite:false})));fm.renderOrder=10+HRr*10+.2;grp.add(fm);flows.push({tx:ftx,sp:Math.max(1,Lc/FLOW_P)*FLOW_V/Lc,m:fm})}
+        {const rp=Math.max(1,Lc/FLOW_P),spd=rp*FLOW_V/Lc,key=fc.getHexString()+'|'+spd;const uvA=sh.attributes.uv;for(let i=0;i<uvA.count;i++)uvA.array[i*2]*=rp;
+          let q=SHQ.get(key);if(!q){ftx.repeat.set(1,1);const fm=new T.Mesh(sh,rwM(new T.MeshBasicMaterial({map:ftx,color:fc,transparent:true,opacity:.5,blending:T.AdditiveBlending,depthWrite:false})));fm.renderOrder=10+HRr*10+.2;grp.add(fm);flows.push({tx:ftx,sp:spd,m:fm});q={m:fm,g:[]};SHQ.set(key,q)}q.g.push(sh)}}
       // giro 1393 (Pietro: «non mi piace che si vedano quelle linee residue delle rotte quando zoom»): tolte la linea sottile dentro il tubo
       // e la linea a terra (stavano in una geometria fissa e non seguivano l'abbassamento delle quote)
       // capi davanti agli esagoni: un piccolo innesto del colore della rotta
@@ -3356,6 +3374,7 @@ order.forEach((r,ri)=>{const grp=new T.Group();holo.add(grp);const col=routeCol(
       if(shared)for(const q of sgm){const h=hubAt(q.ox,q.oy);if(!h)continue;for(const m of grp_)if(m!==r.name&&(h.routes.has(m)||(h.lroutes&&h.lroutes.has(m)))){(h.shY??={})[m]=HRr;(h.used??=new Set()).add(m)}}  // giro 1394: i pallini delle altre rotte del tubo a strisce stanno sul tubo
       // giro 934 (Pietro: «mi piaceva l'animazione di qualche versione fa»): di nuovo gli impulsi di luce che scorrono lungo la rotta
       const n=0  /* giro 1478 (Pietro: «non mi piacciono quei punti più luminosi delle rotte, lascia solo quelli più piccoli all'interno»): niente impulsi luminosi, restano i tratti di luce dentro il tubo */,pc=col.clone().lerp(new T.Color('#ffffff'),.45);for(let k=0;k<n;k++){const sp=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:pc,transparent:true,opacity:.95,blending:T.AdditiveBlending,depthWrite:false}));sp.scale.set(2.8*K,2.8*K,1);sp.renderOrder=10+HRr*10+.3;sp.userData={curve,t:k/n,sp:FLOW_V/curve.getLength()/10};  /* giro 1065: impulsi più fitti e più grandi, stessa velocità in unità al secondo su ogni tratto */grp.add(sp);pulses.push(sp)}}}
+  if(grp.userData.flush){grp.userData.flush();delete grp.userData.flush}
   routeObjs.push({r,grp});if(LEG.has(r.name))grp.visible=false;
   const b=document.createElement('button');b.setAttribute('aria-pressed','false');b.innerHTML=`<i style="background:${col.getStyle()};color:${col.getStyle()}"></i>${r.name}${LEG.has(r.name)?' <small>(Legends)</small>':''}`;
   b.onclick=()=>{const on=b.getAttribute('aria-pressed')!=='true';legend.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));if(on)b.setAttribute('aria-pressed','true');focusRoute(on?r.name:null)};legend.appendChild(b)});
@@ -3382,8 +3401,8 @@ d.innerHTML=`<span>${h.junction.name}</span>`;const o=new T.CSS2DObject(d);o.pos
 // giro 1401 (Pietro: «da telefono il sito crasha»): le immagini delle nebulose in memoria video erano ~900 MB; ora si rimpiccioliscono prima di caricarle (telefono 512 px e 10 px/unità, computer 1024 px e 22 px/unità)
 const NEB_MOB=matchMedia('(pointer:coarse)').matches||Math.min(screen.width,screen.height)<820,NEB_MX=NEB_MOB?512:1536,NEB_PX=NEB_MOB?10:24;  // giro 1409 (Pietro: «perché vedo così?», mappa bianca): con le sfumature larghe le nebulose occupavano ~700 MB di memoria grafica e il Mac perdeva il disegno; ora ~320 MB
 function nebShrink(im,C){const w=im.width,h=im.height;if(!w||!h)return im;const a=C.corners[0],b=C.corners[1],wu=Math.hypot(b[0]-a[0],b[1]-a[1])||1;const k=Math.min(1,NEB_MX/Math.max(w,h),NEB_PX/(w/wu));if(k>=.999)return im;const cv=document.createElement('canvas');cv.width=Math.max(8,Math.round(w*k));cv.height=Math.max(8,Math.round(h*k));const x=cv.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(im,0,0,cv.width,cv.height);if(im.close)try{im.close()}catch(e){}return cv}
-const NEBQ=[];let nebBusy=0;function nebPump(){if(!NEBQ.length)return;const tg=(typeof controls!=='undefined'&&controls)?controls.target:null;if(tg)NEBQ.sort((a,b)=>a.p.distanceToSquared(tg)-b.p.distanceToSquared(tg));while(nebBusy<3&&NEBQ.length){const it=NEBQ.shift();nebBusy++;it.go().finally(()=>{nebBusy--;setTimeout(nebPump,30)})}}setTimeout(nebPump,2500);
-const OBJX=[],NEBL=[],NEBP=[],wellAnim=[],sysObjs=[],pickers=[],lifters=[],cloudMats=[],bhFace=[],bhOrb=[],nsOrb=[],nsFlare=[],nsSpin=[],snAnim=[],_nsv=new T.Vector3(),_tdv=new T.Vector3(),_bq=new T.Quaternion();let liftF=-1;
+const NEBQ=[];let nebBusy=0;function nebPump(){if(!NEBQ.length)return;const tg=(typeof controls!=='undefined'&&controls)?controls.target:null;if(tg)NEBQ.sort((a,b)=>a.p.distanceToSquared(tg)-b.p.distanceToSquared(tg));while(nebBusy<4&&NEBQ.length){const it=NEBQ.shift();nebBusy++;it.go().finally(()=>{nebBusy--;setTimeout(nebPump,30)})}}requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(nebPump,0)));  /* giro 1541: le nebulose partono subito dopo il primo fotogramma (nella vista iniziale non si vedono: compaiono solo da più vicino) */
+const OBJX=[],NEBL=[],NEBP=[],wellAnim=[],sysObjs=[],pickers=[],lifters=[],cloudMats=[],bhFace=[],bhOrb=[],nsOrb=[],nsFlare=[],nsSpin=[],snAnim=[],_nsv=new T.Vector3(),_tdv=new T.Vector3(),_bq=new T.Quaternion();let liftF=-1,liftBusy=true,texDirty=false;  /* giro 1541: un'immagine appena arrivata chiede un fotogramma */
 
 // giro 1463: imbuto di un pozzo gravitazionale (Lorahns Cavity e buchi neri): anelli e raggi che scendono sotto il piano e si spengono
 // verso l'esterno, anelli che scivolano verso il centro, bagliore e nucleo scuro nella gola
@@ -3485,7 +3504,7 @@ for(const s of DATA.systems){
     }
     // giro 962 (Pietro: «non sembra per nulla una nebulosa»): la nube dipinta del vecchio sito, a sei strati sovrapposti
     // (volume visto di sbieco), luce che si somma, righe olografiche, ogni strato con un respiro e una deriva propri
-    if(C){const tex=new T.Texture();NEBQ.push({p:grp.position.clone(),go:()=>pkURL(C.img).then(u=>new Promise(r=>new T.TextureLoader().load(u,t=>{tex.image=nebShrink(t.image,C);tex.needsUpdate=true;r()},undefined,()=>r()))).catch(()=>{})});  // giro 1400: le immagini delle nebulose si scaricano dopo l'apertura, prima le più vicine a dove si guarda  // giro 1164: immagine della nebulosa in un file a parte
+    if(C){const tex=new T.Texture();NEBQ.push({p:grp.position.clone(),go:()=>pkURL(C.img).then(u=>new Promise(r=>new T.TextureLoader().load(u,t=>{tex.image=nebShrink(t.image,C);tex.needsUpdate=true;texDirty=true;r()},undefined,()=>r()))).catch(()=>{})});  // giro 1400: le immagini delle nebulose si scaricano dopo l'apertura, prima le più vicine a dove si guarda  // giro 1164: immagine della nebulosa in un file a parte
 
       const c=C.corners.map(([x,y])=>P(x,y,0).sub(grp.position));
       // giro 963 (Pietro: «troppo sfocato, troppo piatto»): immagine a piena definizione e 16 strati che salgono fino a 2.4:
@@ -3651,6 +3670,7 @@ _tagR=true;LBT=LR;
   const near=(x,y)=>{const gx=Math.floor(x/CS),gy=Math.floor(y/CS);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const L=cell[(gx+a)+','+(gy+b)];if(L)for(const q of L)if(dseg(x,y,q)<TOL)return true}return false};
   const taken=(x0,y0,x1,y1)=>near(x0,y0)&&near(x1,y1)&&near((x0+x1)/2,(y0+y1)/2);
   const put=q=>{const k=new Set();for(const t of [0,.5,1]){const x=q[0]+(q[2]-q[0])*t,y=q[1]+(q[3]-q[1])*t;k.add(Math.floor(x/CS)+','+Math.floor(y/CS))}for(const kk of k)(cell[kk]??=[]).push(q)};
+  const WALLQ={};
   for(const W of WALLS){const pos=[],uv=[],col=[],mine=[];const c=W.col;
     for(const pts of W.loops){const n=pts.length;for(let i=0;i<n;i++){const [X0,Y0]=pts[i],[X1,Y1]=pts[(i+1)%n];mine.push([X0,Y0,X1,Y1]);
       const ns=Math.max(1,Math.ceil(Math.hypot(X1-X0,Y1-Y0)/.25));for(let k=0;k<ns;k++){const x0=X0+(X1-X0)*k/ns,y0=Y0+(Y1-Y0)*k/ns,x1=X0+(X1-X0)*(k+1)/ns,y1=Y0+(Y1-Y0)*(k+1)/ns;
@@ -3658,7 +3678,9 @@ _tagR=true;LBT=LR;
       pos.push(a.x,0,a.z,b.x,0,b.z,b.x,H,b.z,a.x,0,a.z,b.x,H,b.z,a.x,H,a.z);uv.push(0,0,1,0,1,1,0,0,1,1,0,1);for(let q=0;q<6;q++)col.push(c.r,c.g,c.b)}}}
     for(const q of mine)put(q);if(!pos.length)continue;
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('color',new T.Float32BufferAttribute(col,3));
-    const wm=new T.MeshBasicMaterial({map:wTex,vertexColors:true,transparent:true,side:T.DoubleSide,blending:T.CustomBlending,blendEquation:T.MaxEquation,depthWrite:false});/* giro 1060 (Pietro: «non mi piace che si formino sovrapposizioni di luce»): dove due muri (o le due facce dello stesso) si sovrappongono vale il più luminoso, non la somma */if(W.grp!==holo&&W.grp!==macGrp)secWallMats.push(wm);W.grp.add(new T.Mesh(g,wm))}}
+    /* giro 1541: i muri si raccolgono per gruppo di destinazione (regioni, macroregioni, settori) e si uniscono alla fine: fusione al massimo, l'ordine non conta */
+    if(!window.__NOWM){const cat=W.grp===holo?'holo':W.grp===macGrp?'mac':'sec';let q=WALLQ[cat];if(!q){const wm=new T.MeshBasicMaterial({map:wTex,vertexColors:true,transparent:true,side:T.DoubleSide,blending:T.CustomBlending,blendEquation:T.MaxEquation,depthWrite:false});if(cat==='sec')secWallMats.push(wm);const m=new T.Mesh(new T.BufferGeometry(),wm);(cat==='mac'?macGrp:holo).add(m);q=WALLQ[cat]={m,g:[]}}q.g.push(g);continue}
+    const wm=new T.MeshBasicMaterial({map:wTex,vertexColors:true,transparent:true,side:T.DoubleSide,blending:T.CustomBlending,blendEquation:T.MaxEquation,depthWrite:false});/* giro 1060 (Pietro: «non mi piace che si formino sovrapposizioni di luce»): dove due muri (o le due facce dello stesso) si sovrappongono vale il più luminoso, non la somma */if(W.grp!==holo&&W.grp!==macGrp)secWallMats.push(wm);W.grp.add(new T.Mesh(g,wm))}for(const q of Object.values(WALLQ))q.m.geometry=mergeG(q.g);flushFills()}
 
 // giro 1170 (Pietro: «il rosa per tutti i sottosettori non mi convince; in settori con più sottosettori ci si confonde»):
 // ogni sottosettore prende i colori del settore che lo contiene (e quindi della sua regione), con un velo leggero in un tono
@@ -3713,11 +3735,11 @@ const NIGHT0=new T.DataTexture(new Uint8Array([0,0,0,255]),1,1);NIGHT0.needsUpda
 /* planet map LOD: the light i/1k/<name>-map.webp (1024 px) is loaded first; the full-size map replaces it when the planet
    covers more than ~300 px on screen (previews made by scripts/optimize_planet_maps.py; missing preview -> full-size map) */
 const texHi=new WeakMap(),texLo=u=>typeof u==='string'&&/^i\/[^/]+-map\.webp$/.test(u)?u.replace(/^i\//,'i/1k/'):null;
-const texL=new T.TextureLoader(),texC={},texOf=p=>texC[p]||(texC[p]=PK[p]?(()=>{const t=new T.Texture();const set=q=>{t.image=q.image;t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.needsUpdate=true};pkURL(p).then(u=>{const lo=texLo(u);if(!lo){texL.load(u,set);return}texL.load(lo,q=>{set(q);texHi.set(t,u)},undefined,()=>texL.load(u,set))}).catch(()=>{});return t})():texL.load(p,t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy()}));
+const texL=new T.TextureLoader(),texC={},texOf=p=>texC[p]||(texC[p]=PK[p]?(()=>{const t=new T.Texture();const set=q=>{t.image=q.image;t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.needsUpdate=true;texDirty=true};pkURL(p).then(u=>{const lo=texLo(u);if(!lo){texL.load(u,set);return}texL.load(lo,q=>{set(q);texHi.set(t,u)},undefined,()=>texL.load(u,set))}).catch(()=>{});return t})():texL.load(p,t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy()}));
 setInterval(()=>{if(!sysGrp||document.hidden)return;const k=renderer.domElement.clientHeight/(2*Math.tan(camera.fov*Math.PI/360)),sc=new T.Vector3(),w=new T.Vector3();
   sysGrp.traverseVisible(o=>{const U=o.material&&o.material.uniforms,t=U&&U.map&&U.map.value;if(!t||!texHi.has(t)||!o.geometry.parameters||!o.geometry.parameters.radius)return;
     const r=o.geometry.parameters.radius*o.getWorldScale(sc).x,d=o.getWorldPosition(w).distanceTo(camera.position);
-    if(d>r&&2*r/d*k>300){const u=texHi.get(t);texHi.delete(t);texL.load(u,q=>{t.image=q.image;t.needsUpdate=true},undefined,()=>{})}})},500);  // giro 1050: le mappe generiche stanno nei pacchi
+    if(d>r&&2*r/d*k>300){const u=texHi.get(t);texHi.delete(t);texL.load(u,q=>{t.image=q.image;t.needsUpdate=true;texDirty=true},undefined,()=>{})}})},500);  // giro 1050: le mappe generiche stanno nei pacchi
 const fadeEl=document.createElement('div');fadeEl.id='sysfade';document.body.appendChild(fadeEl);
 const backB=document.createElement('button');backB.className='chip';backB.id='v-back';backB.innerHTML='<span class="ico" aria-hidden="true">‹</span><span class="tx">Torna alla galassia</span>';backB.setAttribute('aria-label','Torna alla galassia');backB.classList.add('backb');backB.hidden=true;
 document.querySelector('.chips').appendChild(backB);
@@ -3748,7 +3770,7 @@ function mkBody(b,size){let o;
     if(b.g3d){o.rotation.order='ZYX';o.rotation.z=+b.g3d||.3}
     /* giro 1193 (Pietro: «Byss procedi»): canon «avvolto da un bagliore inquietante prodotto dal suo sole»: alone luminoso attorno al pianeta */
     if(b.glow){const sp=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:new T.Color(b.glow),transparent:true,opacity:.32,blending:T.AdditiveBlending,depthWrite:false}));sp.scale.setScalar(size*2.7);sp.raycast=()=>{};o.add(sp)}
-    o.userData.lit=true;o.userData.spin=1;if(b.img.n){const U=o.material.uniforms;pkURL(b.img.n).then(u=>texL.load(u,t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy();U.nm.value=t})).catch(()=>{})}}
+    o.userData.lit=true;o.userData.spin=1;if(b.img.n){const U=o.material.uniforms;pkURL(b.img.n).then(u=>texL.load(u,t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy();U.nm.value=t;texDirty=true})).catch(()=>{})}}
   else if(b.img&&b.img.p){o=new T.Sprite(new T.SpriteMaterial({map:texOf(b.img.p),transparent:true,depthWrite:true,alphaTest:.45}));o.renderOrder=-1;o.scale.set(size*2,size*2,1);  /* giro 1024 (Pietro: «si vedono le linee sotto i pianeti»): il pianeta copre ciò che ha dietro */
     o.userData.lt=b.lt==null?Math.PI:b.lt}
   else{o=new T.Mesh(new T.SphereGeometry(size,32,20),litMat(b.col||'#8a96a0'));o.userData.lit=true}
@@ -4470,6 +4492,29 @@ const rot=document.getElementById('v-rot');rot.onclick=()=>{controls.autoRotate=
 
 // ---- bagliore
 /* giro 1472 (Pietro: «mi infastidiscono questi sbrilluccichii bianchi quando muovo la visuale»): la scena passa per il bagliore in un'immagine senza antialiasing, così le linee sottili luccicano quando la vista si muove; con WebGL2 l'immagine di partenza ha l'antialiasing (4 campioni) */
+/* giro 1541 (prova prestazioni): i segni dei sistemi (pallino, alone, anello a terra, asta) erano ~2.500 oggetti disegnati uno per uno.
+   Restano nella scena come prima (posizioni, salita con lo zoom, comparsa per distanza, tutto come ora) ma non si disegnano: li
+   disegnano poche copie «a istanze» (una per forma e materiale) che prima di ogni fotogramma ne copiano posizione e visibilità. */
+const INST=[];const _ivis=o=>{for(let q=o;q;q=q.parent){if(!q.visible)return false;if(q===scene)return true}return false};
+{const groups=new Map();
+  for(const so of sysObjs)for(const o of so.grp.children){if(!(o.isMesh||o.isSprite||o.isLine)||o.isLineSegments||!o.material||o.material.visible===false||o.material.isShaderMaterial||o.renderOrder!==0||o.onBeforeRender!==T.Object3D.prototype.onBeforeRender||o.material.onBeforeCompile!==T.Material.prototype.onBeforeCompile)continue;
+    const k=(o.isSprite?'S':o.isLine?'L':'M')+'|'+(o.isLine?'':o.geometry.uuid)+'|'+o.material.uuid;let L=groups.get(k);if(!L)groups.set(k,L=[]);L.push(o)}
+  for(const [k,L] of groups){if(L.length<6)continue;const o0=L[0];let inst;
+    if(o0.isLine){if(L.some(o=>!o.geometry.attributes.position||o.geometry.attributes.position.count!==2||o.geometry.index))continue;
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(new Float32Array(L.length*6),3));inst=new T.LineSegments(g,o0.material);inst.userData.lines=true}
+    else if(o0.isSprite){const m=o0.material.clone();m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );','vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );')
+        .replace('scale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );','scale.x = length( vec3( instanceMatrix[ 0 ].x, instanceMatrix[ 0 ].y, instanceMatrix[ 0 ].z ) );')
+        .replace('scale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );','scale.y = length( vec3( instanceMatrix[ 1 ].x, instanceMatrix[ 1 ].y, instanceMatrix[ 1 ].z ) );')};
+      m.customProgramCacheKey=()=>'instSprite';inst=new T.InstancedMesh(o0.geometry,m,L.length);inst.center=new T.Vector2(.5,.5)}
+    else inst=new T.InstancedMesh(o0.geometry,o0.material,L.length);
+    inst.frustumCulled=false;inst.renderOrder=0;inst._bs=null;holo.add(inst);for(const o of L)o.layers.disableAll();INST.push({inst,L,line:!!o0.isLine})}}
+const _iz=new T.Matrix4().makeScale(0,0,0),_iv=new T.Vector3();
+function instSync(){for(const E of INST){const L=E.L;let n=0;  /* solo i segni visibili, in fila (gli altri non costano nulla) */
+  if(E.line){const a=E.inst.geometry.attributes.position,A=a.array;for(let i=0;i<L.length;i++){const o=L[i];if(!_ivis(o))continue;const p=o.geometry.attributes.position.array;
+      _iv.set(p[0],p[1],p[2]).applyMatrix4(o.matrixWorld);A[n*6]=_iv.x;A[n*6+1]=_iv.y;A[n*6+2]=_iv.z;_iv.set(p[3],p[4],p[5]).applyMatrix4(o.matrixWorld);A[n*6+3]=_iv.x;A[n*6+4]=_iv.y;A[n*6+5]=_iv.z;n++}
+    a.needsUpdate=true;E.inst.geometry.setDrawRange(0,n*2);E.inst.visible=n>0;continue}
+  const im=E.inst;for(let i=0;i<L.length;i++){const o=L[i];if(_ivis(o))im.setMatrixAt(n++,o.matrixWorld)}im.count=n;im.visible=n>0;im.instanceMatrix.needsUpdate=true}}
+scene.autoUpdate=false;
 const composer=(()=>{const pr=renderer.getPixelRatio();if(!(renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget))return new T.EffectComposer(renderer);
   const rt=new T.WebGLMultisampleRenderTarget(innerWidth*pr,innerHeight*pr,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});rt.samples=4;rt.texture.name='EffectComposer.rt1';
   const c=new T.EffectComposer(renderer,rt);c.setPixelRatio(pr);c.setSize(innerWidth,innerHeight);return c})();composer.addPass(new T.RenderPass(scene,camera));
@@ -4522,8 +4567,8 @@ const PR_FULL=Math.min(2,devicePixelRatio),PR_LOW=Math.min(PR_FULL,1.5);let prMo
 controls.addEventListener('start',()=>{ctlDrag=true});controls.addEventListener('end',()=>{ctlDrag=false});
 let lastCamK='',last=performance.now(),lab=0,lastSig=NaN,moved=0,lastHot=null,lastPin=null;const clock=new T.Clock();
 function frame(now){
-  if(!tween&&!ctlDrag&&!pend&&now-moved>600&&hot===lastHot&&pinned===lastPin&&now-lastDraw<32){requestAnimationFrame(frame);return}  /* giro 1465: a vista ferma al massimo ~30 fotogrammi al secondo */
-  lastDraw=now;const _f0=performance.now();const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!tween&&!ctlDrag&&!pend&&now-moved>600&&hot===lastHot&&pinned===lastPin&&(now-lastDraw<32||(reduce&&lastDraw>0&&!liftBusy&&!prMov&&!texDirty))){requestAnimationFrame(frame);return}  /* giro 1541: senza animazioni (movimento ridotto) a vista ferma non si ridisegna nulla */  /* giro 1465: a vista ferma al massimo ~30 fotogrammi al secondo */
+  lastDraw=now;texDirty=false;const _f0=performance.now();const dt=Math.min(.05,(now-last)/1000);last=now;
   if(!viewer.hidden){requestAnimationFrame(frame);return}  /* giro 1084: con il visore aperto la scena 3D dietro non si disegna (più leggero; chiudendo riparte subito) */
   if(tween){tween.t=Math.min(1,tween.t+dt/1.1);const e=tween.t<.5?2*tween.t*tween.t:1-Math.pow(-2*tween.t+2,2)/2;controls.target.lerpVectors(tween.from[0],tween.to[0],e);camera.position.lerpVectors(tween.from[1],tween.to[1],e);if(tween.t>=1)tween=null}
   camDist=camera.position.distanceTo(controls.target);if(hrGrp.visible&&eraGrp.visible||cwGrp.visible||gcGrp.visible||nrGrp.visible)CWS.value=Math.max(.9,Math.min(6,camDist/110));_pmx.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);_frus.setFromProjectionMatrix(_pmx);if(!sysMode){nebLOD(camDist);farLOD(camDist);cluLOD(camDist);cullHolo()}
@@ -4538,7 +4583,7 @@ function frame(now){
   // giro 953: altezza dei sistemi fuori dalle rotte: quasi a terra da lontano, piena da vicino (passaggio morbido)
   {const dist=camera.position.distanceTo(controls.target);if(!sysMode){const u=Math.max(0,Math.min(1,Math.log(Math.max(dist,RW_D0)/RW_D0)/Math.log(RW_D1/RW_D0))),us=u*u*(3-2*u);RW.uRS.value=.25+2*us;{let fm=Math.max(0,Math.min(1,(dist-450)/700));fm=fm*fm*(3-2*fm);RW.uRSM.value=RW.uRS.value*(1+1.4*fm);/* giro 1465: niente schiarimento (Pietro: «troppo luminose, così non si vedono i colori»), solo spessore */}RW.uRH.value=.35+.65*us;RW.uT.value=clock.getElapsedTime()}}
   {const dist=camera.position.distanceTo(controls.target),x=Math.max(0,Math.min(1,(320-dist)/(320-70))),tgt=.08+.92*x*x*(3-2*x),f=liftF<0?tgt:liftF+(tgt-liftF)*Math.min(1,dt*8);
-    if(Math.abs(f-liftF)>.0005||Math.abs(RW.uRH.value-rhNow)>.002){liftF=f;rhNow=RW.uRH.value;const rh=rhNow;
+    liftBusy=Math.abs(f-liftF)>.0005||Math.abs(RW.uRH.value-rhNow)>.002;if(liftBusy){liftF=f;rhNow=RW.uRH.value;const rh=rhNow;
       for(const so of lifters){const ff=f*(so.rh?rh:1);for(const o of so.lift){if(o.isLine&&!o.userData.pos){o.scale.y=ff}else o.position.y=so.H*ff}}
       for(const so of rhSys){const y=Math.max((so.s.open?2.1:1.5)*f,(so.H-.75)*rh+.45);for(const o of so.lift){if(o.isLine&&!o.userData.pos){o.scale.y=y/so.H}else o.position.y=y}}
       for(const o of routeObjs)o.grp.scale.y=rh;for(const g of hubGrps)g.scale.y=rh;for(const p of pulses)p.scale.y=2.8*K/rh}
@@ -4551,7 +4596,7 @@ function frame(now){
 if(secWallMats.length&&secWallMats[0].opacity!==secF)for(const m of secWallMats){m.opacity=secF;m.color.setScalar(secF)}
 }
   const _fr=performance.now();perfT('anim',_fr-_fa);perfT('other',_fa-_f0);
-  controls.update();renderer.info.autoReset=false;renderer.info.reset();const _hid=[];if(!sysMode)for(const o of CULL)if(o._cull&&o.visible){o.visible=false;_hid.push(o)}  /* giro 1465: le parti fuori vista non si visitano nemmeno nel disegno (rimesse subito dopo) */
+  controls.update();scene.updateMatrixWorld();instSync();renderer.info.autoReset=false;renderer.info.reset();const _hid=[];if(!sysMode)for(const o of CULL)if(o._cull&&o.visible){o.visible=false;_hid.push(o)}  /* giro 1465: le parti fuori vista non si visitano nemmeno nel disegno (rimesse subito dopo) */
   gpuBegin();composer.render();gpuEnd();for(const o of _hid)o.visible=true;const _fl=performance.now();perfT('render',_fl-_fr);
   // giro 1021: sulla galassia i nomi si riposizionano solo se la vista si è mossa o i nomi sono cambiati (prima a ogni fotogramma)
   {const c=camera.position,q=camera.quaternion,k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2)+','+q.x.toFixed(4)+','+q.y.toFixed(4)+','+q.w.toFixed(4)+','+innerWidth+'x'+innerHeight;
