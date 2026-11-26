@@ -336,7 +336,9 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
   const fmt=new Intl.DateTimeFormat("it-IT",{day:"numeric",month:"long",year:"numeric"});
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   function titolo(html){
-    const d=document.createElement("div"); d.innerHTML=(html||"").split(/<br\s*\/?>/i)[0]; return d.textContent.trim();
+    /* prima riga con del testo (salta righe vuote iniziali); entita' come &amp; decodificate */
+    for(const riga of (html||"").split(/<br\s*\/?>/i)){ const d=document.createElement("div"); d.innerHTML=riga; const t=d.textContent.trim(); if(t) return t; }
+    return "";
   }
   fetch("/notizie/posts.json",{cache:"no-cache"}).then(r=>r.json()).then(d=>{
     const asc=[...d.messaggi].sort((a,b)=>a.id-b.id), out=[];
