@@ -212,7 +212,7 @@ body{min-height:100lvh}
    fissi ma coprono tutta la pagina e scorrono con lei (solo su iPhone/iPad). */
 @supports (-webkit-touch-callout:none){
   body{position:relative}
-  .table,.scan,.vign{position:absolute;top:0;right:0;bottom:0;left:0;height:auto;min-height:100lvh}
+  .table,.scan,.vign{position:absolute;top:0;right:0;bottom:0;left:0;height:auto;min-height:100lvh;overflow:hidden}
 }
 .table,.scan,.vign{min-height:100lvh}
 .hero{padding-top:calc(13vh + env(safe-area-inset-top,0px))}
