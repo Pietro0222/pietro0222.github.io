@@ -4660,7 +4660,7 @@ function nebLOD(dist){const tg=controls.target,k=Math.round(dist*2)+'|'+Math.rou
     if(full&&e.L===0)nebFull++}
   for(const p of NEBP)p.visible=fade>.5&&dist<=250}
 /* giro 1555 (Pietro: «non c'è modo di ottimizzare a seconda del dispositivo?»): qualità adattiva. Mentre si usa la mappa si misura il
-   tempo fra un fotogramma e l'altro; se per ~45 fotogrammi la media supera 26 ms (sotto ~38 al secondo) si scende di un gradino:
+   tempo fra un fotogramma e l'altro; se per ~45 fotogrammi la media supera 40 ms (sotto 25 al secondo) si scende di un gradino:
    1 risoluzione ×0,83 · 2 risoluzione 1× · 3 bagliore a metà · 4 bagliore spento e nebulose con meno strati · 5 bordi lisci spenti
    (solo dopo il bagliore: senza bordi lisci le linee sottili accese dal bagliore si vedrebbero molto di più) · 6 nomi ricontrollati solo da fermi. Non si risale durante la visita; il gradino si ricorda su quel dispositivo e alla visita dopo si
    riparte da un gradino più su (così, se il telefono va meglio, la qualità torna piano piano) */
@@ -4673,7 +4673,7 @@ function aqApply(lv){AQ.lv=lv;
   nebK='';pend=true;texDirty=true;try{localStorage.setItem('holomap-aq',String(lv))}catch(e){}}
 function aqTick(raw,now){if(AQ.pendLv!=null){const l=AQ.pendLv;AQ.pendLv=null;aqApply(l);AQ.lastCh=now}if(AQ.gap){AQ.gap=0;return}if(now-AQ.t0<8000||now-AQ.lastCh<3000||document.hidden)return;if(raw>1500){AQ.win.length=0;return}
   AQ.win.push(raw);if(AQ.win.length<45)return;const a=AQ.win.reduce((x,y)=>x+y,0)/AQ.win.length;AQ.win.length=0;AQ.avg=a;
-  if(a>26&&AQ.lv<AQ.max){aqApply(AQ.lv+1);AQ.lastCh=now}}
+  if(a>40&&AQ.lv<AQ.max){aqApply(AQ.lv+1);AQ.lastCh=now}}  /* giro 1558: soglia 40 ms (25 al secondo): i telefoni bloccati a 30 al secondo (risparmio energetico, alcune app) non devono scendere per forza */
 {let sv=0;try{sv=+(localStorage.getItem('holomap-aq')||0)}catch(e){}if(sv>1)AQ.pendLv=Math.min(AQ.max,sv-1)}  /* giro 1557: il gradino salvato si applica al primo fotogramma (prima si applicava quando PR_FULL non esisteva ancora: «il proiettore non si è acceso») */
 if(window.__MEAS)window.__aq={AQ,aqApply,aqTick};
 const PERF={on:false,el:null,acc:{},n:0,t0:performance.now(),worst:0,gpu:null,gq:null,gpuMs:0};
@@ -4734,7 +4734,7 @@ if(secWallMats.length&&secWallMats[0].opacity!==secF)for(const m of secWallMats)
     if(sysMode||k!==lastCamK||pend||now-lab<400){lastCamK=k;labelR.render(scene,camera);labVP.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse)}}
   const _fl2=performance.now();perfT('labels',_fl2-_fl);
   {const c=camera.position,g=controls.target,sg=c.x+c.y*7.3+c.z*13.1+g.x*17.7+g.z*19.9;if(sg!==lastSig){lastSig=sg;moved=now}}
-  sysFrame(dt);if(!sysMode&&now-lab>120&&(pend||now-moved<450||hot!==lastHot||pinned!==lastPin)&&!(AQ.lv>=6&&now-moved<200&&!pend)){lab=now;lastHot=hot;lastPin=pinned;updateLOD();labelR.markDirty();layoutLabels()}  // giro 996: a camera ferma non si rifà nulla
+  sysFrame(dt);if(!sysMode&&now-lab>120&&(pend||now-moved<450||hot!==lastHot||pinned!==lastPin||(AQ.lv>=6&&lab<moved+200))&&!(AQ.lv>=6&&now-moved<200&&!pend)){  /* giro 1558: al gradino 6 il controllo dopo l'arresto si fa sempre (prima, con fotogrammi lenti, la finestra 200–450 ms poteva saltare e non comparivano nomi né segnalini) */lab=now;lastHot=hot;lastPin=pinned;updateLOD();labelR.markDirty();layoutLabels()}  // giro 996: a camera ferma non si rifà nulla
   {const e=performance.now();perfT('layout',e-_fl2);perfFrame(now,e-_f0)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
