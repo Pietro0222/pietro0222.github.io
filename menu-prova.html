@@ -240,7 +240,7 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
 
 <section class="wrap" aria-labelledby="titolo-notizie">
   <div class="news">
-    <div class="news-head"><h2 id="titolo-notizie">NOTIZIE</h2><div class="go"><a href="/notizie/">Tutte le notizie</a></div></div>
+    <div class="news-head"><h2 id="titolo-notizie">NOTIZIE</h2><div class="go"><a href="/notizie/prova.html">Tutte le notizie</a></div></div>
     <p class="news-desc">Le ultime dal canale Telegram Star Wars ITA.</p>
     <div class="news-list" id="news-list"></div>
   </div>
@@ -347,7 +347,7 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
       else out.push(m); }
     const ultime=out.reverse().filter(n=>titolo(n.testo)).slice(0,3);
     box.innerHTML=ultime.map(n=>{ let img=(n.foto[0]&&n.foto[0].src)||(n.link&&n.link.immagine)||""; if(img&&!/^https?:/.test(img)) img="/notizie/"+img;
-      return `<a class="news-item" href="/notizie/#post-${n.id}"><span class="thumb" style="${img?`background-image:url('${esc(img)}')`:""}"></span>
+      return `<a class="news-item" href="/notizie/prova.html#post-${n.id}"><span class="thumb" style="${img?`background-image:url('${esc(img)}')`:""}"></span>
         <span class="txt"><time datetime="${esc(n.data)}">${fmt.format(new Date(n.data))}</time><b>${esc(titolo(n.testo))}</b></span></a>`; }).join("");
   }).catch(()=>{ box.outerHTML='<p class="news-desc" style="padding-bottom:20px">Notizie non disponibili al momento.</p>'; });
 })();
