@@ -1558,9 +1558,11 @@ return Promise.all(F.map(get)).then(L=>{const D={};F.forEach(([n],i)=>{if(n!=='i
 				_vector.setFromMatrixPosition( object.matrixWorld );
 				_vector.applyMatrix4( _viewProjectionMatrix );
 				const element = object.element;
-				const tr = 'translate(-50%,-50%) translate(' + Math.round( _vector.x * _widthHalf + _widthHalf ) + 'px,' + Math.round( - _vector.y * _heightHalf + _heightHalf ) + 'px)';
-				if ( element._tr !== tr ) { element.style.transform = tr; element._tr = tr; }
-				const dsp = object.visible && _vector.z >= - 1 && _vector.z <= 1 ? '' : 'none';
+				// giro 1554: i nomi ben fuori dallo schermo si spengono e non si spostano (il browser non deve ricalcolarli a ogni fotogramma)
+				const offs = Math.abs( _vector.x ) > 1.7 || Math.abs( _vector.y ) > 1.4; element._offs = offs;
+				if ( ! offs ) { const tr = 'translate(-50%,-50%) translate(' + Math.round( _vector.x * _widthHalf + _widthHalf ) + 'px,' + Math.round( - _vector.y * _heightHalf + _heightHalf ) + 'px)';
+				if ( element._tr !== tr ) { element.style.transform = tr; element._tr = tr; } }
+				const dsp = object.visible && ! offs && _vector.z >= - 1 && _vector.z <= 1 ? '' : 'none';
 				if ( element._dsp !== dsp ) { element.style.display = dsp; element._dsp = dsp; }
 				object._d2 = getDistanceToSquared( camera, object );
 				if ( element.parentNode !== domElement ) domElement.appendChild( element );
@@ -2863,7 +2865,7 @@ LBT=LM;{const vs=L=>L.map(([x,y])=>new T.Vector2(x-CX,y-CY));
 // Regioni Ignote: il Caos (velo del Caos, spazio chiss, pericoli noti, bordo non cartografato), spente finché non si accende «Caratteristiche»
 const UR_Z0=250,UR_Z1=620;const urGrp=new T.Group();urGrp.visible=true;holo.add(urGrp);const URSPIN=[];
 {const B=URX.b.value,geo=new T.PlaneGeometry(B.z,B.w,1,1);geo.rotateX(-Math.PI/2);
-  /* giro 1548 (PROVA, Pietro: «proviamo ad alleggerire senza esagerare»): la parte ferma del velo del Caos (contorno, sfumature, profondità:
+  /* giro 1548 (Pietro: «proviamo ad alleggerire senza esagerare»): la parte ferma del velo del Caos (contorno, sfumature, profondità:
    6 dei 11 rumori a ogni pixel) si calcola una volta sola in una trama; a ogni fotogramma restano solo i rumori che si muovono */
 const URK=(()=>{const N=(matchMedia('(pointer:coarse)').matches||Math.min(screen.width,screen.height)<820)?1536:2048,rt=new T.WebGLRenderTarget(N,N,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,depthBuffer:false});rt.texture.generateMipmaps=false;
   const bm=new T.ShaderMaterial({uniforms:{uM:URX.m,uB:URX.b,uC:URX.c},depthTest:false,depthWrite:false,vertexShader:'varying vec2 vMap;uniform vec4 uB;void main(){vMap=uB.xy+uv*uB.zw;gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:`uniform float uV;uniform vec2 uCs;
@@ -3338,7 +3340,7 @@ const HOf=new Map(order.map(r=>[r.name,LEG.has(r.name)?.6+Math.min(RLV.get(r.nam
    (secondarie, guaine, pallini, Legends, entrambe le versioni) si disegnano una volta fuori schermo, così non si caricano a metà zoom */
 const LOD_K=3,LOD_R=6,LOD_D=160,LODM=[];let lodLo=null;function routeLOD(dist){const lo=lodLo?dist>LOD_D-15:dist>LOD_D;if(lo===lodLo)return;lodLo=lo;for(const e of LODM)if(e.lo)e.m.geometry=lo?e.lo:e.hi}
 const SECW=new T.Group(),SECA={value:1},SECRN=new Set(order.filter(r=>!r.major&&!LEG.has(r.name)).map(r=>r.name));holo.add(SECW);
-function secWrap(m){const f=m.onBeforeCompile;m.onBeforeCompile=(sh,rr)=>{if(f)f.call(m,sh,rr);sh.uniforms.uSecA=SECA;sh.fragmentShader=sh.fragmentShader.replace('void main() {','uniform float uSecA;\nvoid main() {').replace('#include <dithering_fragment>','#include <dithering_fragment>\n\tgl_FragColor.a*=uSecA;')};const k='sec|'+String(f);m.customProgramCacheKey=()=>k;m.needsUpdate=true}
+function secWrap(m){if(m.userData.secW)return;m.userData.secW=1;const f=m.onBeforeCompile;m.onBeforeCompile=(sh,rr)=>{if(f)f.call(m,sh,rr);sh.uniforms.uSecA=SECA;sh.fragmentShader=sh.fragmentShader.replace('void main() {','uniform float uSecA;\nvoid main() {').replace('#include <dithering_fragment>','#include <dithering_fragment>\n\tgl_FragColor.a*=uSecA;')};const k='sec|'+String(f);m.customProgramCacheKey=()=>k;m.needsUpdate=true}
 order.forEach((r,ri)=>{const grp=new T.Group();(SECRN.has(r.name)?SECW:holo).add(grp);const col=routeCol(r),HRr=HOf.get(r.name);routeH.set(r.name,HRr);  // giro 946: metà altezza
 
   for(const ln0 of r.lines){const ln=clean(ln0);if(ln.length<2)continue;
@@ -3436,13 +3438,30 @@ order.forEach((r,ri)=>{const grp=new T.Group();(SECRN.has(r.name)?SECW:holo).add
   routeObjs.push({r,grp});if(LEG.has(r.name))grp.visible=false;
   const b=document.createElement('button');b.setAttribute('aria-pressed','false');b.innerHTML=`<i style="background:${col.getStyle()};color:${col.getStyle()}"></i>${r.name}${LEG.has(r.name)?' <small>(Legends)</small>':''}`;
   b.onclick=()=>{const on=b.getAttribute('aria-pressed')!=='true';legend.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));if(on)b.setAttribute('aria-pressed','true');focusRoute(on?r.name:null)};legend.appendChild(b)});
+/* giro 1554 (Pietro: «rotte divise a riquadri»): ogni tubo e guaina unito per rotta attraversava mezza galassia e la scheda video lo
+   disegnava tutto anche se se ne vedeva un pezzo; ora si divide in riquadri di ROUT/3 (stessi triangoli, stessi materiali), così i pezzi
+   fuori inquadratura non si disegnano */
+function splitGeo(g,TS){if(!g||!g.index||!g.attributes.position)return null;const idx=g.index.array,P=g.attributes.position.array,nt=idx.length/3,map=new Map();
+  for(let t=0;t<nt;t++){const a=idx[t*3],b=idx[t*3+1],c=idx[t*3+2],cx=(P[a*3]+P[b*3]+P[c*3])/3,cz=(P[a*3+2]+P[b*3+2]+P[c*3+2])/3,k=Math.floor(cx/TS)*4096+Math.floor(cz/TS);let L=map.get(k);if(!L)map.set(k,L=[]);L.push(a,b,c)}
+  const out=new Map(),names=Object.keys(g.attributes),rm=new Int32Array(g.attributes.position.count);
+  for(const [k,L] of map){rm.fill(-1);const ord=[],ni=new Uint32Array(L.length);for(let i=0;i<L.length;i++){const o=L[i];let v=rm[o];if(v<0){v=rm[o]=ord.length;ord.push(o)}ni[i]=v}
+    const n=ord.length,ng=new T.BufferGeometry();for(const nm of names){const A=g.attributes[nm],sz=A.itemSize,src=A.array,dst=new src.constructor(n*sz);for(let v=0;v<n;v++){const o=ord[v]*sz,d=v*sz;for(let q=0;q<sz;q++)dst[d+q]=src[o+q]}ng.setAttribute(nm,new T.BufferAttribute(dst,sz,A.normalized))}
+    ng.setIndex(new T.BufferAttribute(n<65536?Uint16Array.from(ni):ni,1));out.set(k,ng)}
+  return out}
+function tileRoutes(done){const TS=ROUT/TILE_D,todo=LODM.slice(),ne=[];let nt=0,ms=0;const step=()=>{const t0=performance.now();
+  while(todo.length&&performance.now()-t0<8){const e=todo.shift(),m=e.m;const H=(e.hi.index&&e.hi.index.count/3>TILE_MIN)?splitGeo(e.hi,TS):null;if(!H||H.size<2||!m.parent){ne.push(e);continue}const Lo=e.lo?splitGeo(e.lo,TS):null;
+    const g=new T.Group();g.visible=m.visible;m.parent.add(g);m.parent.remove(m);for(const f of flows)if(f.m===m)f.m=g;const pi=routePick.indexOf(m);if(pi>=0)routePick.splice(pi,1);
+    for(const k of new Set([...H.keys(),...(Lo?Lo.keys():[])])){const hi=H.get(k)||Lo.get(k),lo=Lo?(Lo.get(k)||hi):null;const t=new T.Mesh(hi,m.material);t.renderOrder=m.renderOrder;t.userData=m.userData;g.add(t);ne.push({m:t,hi,lo});if(pi>=0)routePick.push(t);nt++}
+    e.hi.dispose();if(e.lo)e.lo.dispose()}
+  ms+=performance.now()-t0;if(todo.length){setTimeout(step,0);return}LODM.length=0;LODM.push(...ne);routeLOD._f=1;lodLo=null;window.__TILES=[nt,Math.round(ms)];done&&done()};step()}
+const TILE_D=3,TILE_MIN=30000;
 SECW.traverse(o=>{if(o.material)secWrap(o.material)});
 function warmGPU(){try{const L=[holo,SECW,...flows.map(f=>f.m),...hubGrps].filter(Boolean),on=[],fc=[];for(const o of L){if(!o.visible){o.visible=true;on.push(o)}}
   for(const o of [SECW,...flows.map(f=>f.m),...LODM.map(e=>e.m)])if(o)o.traverse(q=>{if(q.frustumCulled){q.frustumCulled=false;fc.push(q)}});const rt=new T.WebGLRenderTarget(4,4),pr=renderer.getRenderTarget(),was=lodLo;renderer.setRenderTarget(rt);
   for(const lo of [false,true]){for(const e of LODM)if(e.lo)e.m.geometry=lo?e.lo:e.hi;renderer.render(scene,camera)}
   renderer.setRenderTarget(pr);rt.dispose();for(const e of LODM)if(e.lo)e.m.geometry=was?e.lo:e.hi;for(const q of fc)q.frustumCulled=true;for(const o of on)o.visible=false;
   const hid=[];scene.traverse(o=>{if(!o.visible){o.visible=true;hid.push(o)}});const t0=performance.now();renderer.compile(scene,camera);for(const o of hid)o.visible=false;window.__WARM=performance.now()-t0}catch(e){console.warn('warmGPU',e)}}  /* e i programmi di tutto ciò che compare a zoom diversi (nebulose, sbuffi, getti…) si preparano subito */
-requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(warmGPU,30)));
+requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>tileRoutes(warmGPU),30)));  /* giro 1554: prima i riquadri delle rotte (a pezzi, senza bloccare), poi il caricamento anticipato */
 document.getElementById('lg-t').onclick=e=>{const on=!legend.classList.contains('open');legend.classList.toggle('open',on);e.currentTarget.setAttribute('aria-expanded',String(on))};
 {const k=document.createElement('div');k.className='keys';k.innerHTML='<span><b class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></b>esplorabile</span><span><b class="dot" style="background:#bcd6e2"></b>scalo di rotta</span><span><b class="dot" style="background:var(--holo);box-shadow:0 0 6px var(--holo)"></b>altro sistema</span><span><b class="oct"></b>stazione</span>';legend.appendChild(k)}
 function focusRoute(name){lgFocus=name;lgVis(camera.position.distanceTo(controls.target));for(const o of routeObjs)o.grp.traverse(x=>{if(x.material){if(x.material.userData.o===undefined)x.material.userData.o=x.material.opacity;x.material.opacity=(!name||o.r.name===name)?x.material.userData.o:.06}})}
@@ -4298,7 +4317,7 @@ function labRect(R){if(R.cw===undefined||R.chot!==R.el.classList.contains('hot')
 function labMeasure(R){const r=(R.el.firstElementChild||R.el).getBoundingClientRect();if(r.width){const [x,y]=labProj(R);R.ox=r.left-x;R.oy=r.top-y;R.cw=r.width;R.chh=r.height;R.chot=R.el.classList.contains('hot');R.cww=VW}return r}
 /* giro 1553: misura dei nomi di settori, sottosettori e regioni senza leggere la pagina a ogni giro: grandezza e scarto dal punto si misurano
    una volta (e di nuovo se cambiano scala, finestra o classi), poi il riquadro si ricava dalla proiezione arrotondata come fa il disegno dei nomi */
-function labBox(R){const el=R.el;if(!el.isConnected||el.style.display==='none')return {width:0};const k=layoutLabels._zs+'|'+(layoutLabels._rs||0)+'|'+VW+'x'+VH+'|'+document.body.className+'|'+document.documentElement.className+'|'+el.className.replace(/\boff\b/,'').replace(/\s+/g,' ').trim()+'|'+el.textContent;
+function labBox(R){const el=R.el;if(el._offs)return {width:0,offs:true};if(!el.isConnected||el.style.display==='none')return {width:0};const k=layoutLabels._zs+'|'+(layoutLabels._rs||0)+'|'+VW+'x'+VH+'|'+document.body.className+'|'+document.documentElement.className+'|'+el.className.replace(/\boff\b/,'').replace(/\s+/g,' ').trim()+'|'+el.textContent;
   _lv.setFromMatrixPosition(R.obj.matrixWorld).applyMatrix4(labVP);const x=Math.round(_lv.x*VW/2+VW/2),y=Math.round(-_lv.y*VH/2+VH/2);
   if(R._bk!==k){const r=el.getBoundingClientRect();if(!r.width)return r;R._bk=k;R._bx=r.left-x;R._by=r.top-y;R._bw=r.width;R._bh=r.height;return r}
   const l=x+R._bx,t=y+R._by;return {left:l,top:t,right:l+R._bw,bottom:t+R._bh,width:R._bw}}
@@ -4334,7 +4353,7 @@ function layoutLabels(){const now=performance.now();pend=false;const dist=camera
   // giro 1021: la posizione dei nomi dei sistemi già misurati si ricava dalla proiezione (nessuna lettura della pagina); si misurano solo i nuovi
   const rs=cand.map(([R])=>labRect(R)||labMeasure(R)),rs2=secc.map(R=>labBox(R)),ops=[];
   const PX=VPH?12:4,PY=VPH?7:2;
-  cand.forEach(([R,fav],i)=>{const r=rs[i],el=R.el;if(!r.width){ops.push([el,'off',false]);return}
+  cand.forEach(([R,fav],i)=>{const r=rs[i],el=R.el;if(!r.width){if(!el._offs)ops.push([el,'off',false]);return}
     const hitBox=gHit(BG,r,PX,PY);
     const show=fav||!hitBox;ops.push([el,'off',!show],[el,'hot',!!fav]);if(show)bAdd(r)});
   // giro 1062 (Pietro: «nomi di settori che si sovrappongono ai tondini dei sistemi»): i tondini dei sistemi costruiti (in cima
@@ -4344,7 +4363,7 @@ function layoutLabels(){const now=performance.now();pend=false;const dist=camera
   const VE=labVP.elements,IW=VW,IH=VH;if(secc.length)for(const so of sysObjs){if(so.s.cloud||so.s.neb||so.s.clu||!so.shown)continue;const g=so.grp;
     const M=g.matrixWorld.elements;for(const h of [0,so.lift?so.H*Math.max(liftF,0):so.H]){const wx=M[4]*h+M[12],wy=M[5]*h+M[13],wz=M[6]*h+M[14],iw=1/(VE[3]*wx+VE[7]*wy+VE[11]*wz+VE[15]),x=((VE[0]*wx+VE[4]*wy+VE[8]*wz+VE[12])*iw*.5+.5)*IW,y=(-(VE[1]*wx+VE[5]*wy+VE[9]*wz+VE[13])*iw*.5+.5)*IH,z=(VE[2]*wx+VE[6]*wy+VE[10]*wz+VE[14])*iw;if(z>1||x<-40||y<-40||x>IW+40||y>IH+40)continue;const e=h?5:6;const b={left:x-e,right:x+e,top:y-e,bottom:y+e};dotB.push(b);gAdd(DG,b)}}
   const ovl=(r,q)=>r.left<q.right&&r.right>q.left&&r.top<q.bottom&&r.bottom>q.top;
-  secc.forEach((R,i)=>{const r=rs2[i];if(!r.width){ops.push([R.el,'off',false]);return}
+  secc.forEach((R,i)=>{const r=rs2[i];if(!r.width){if(!r.offs)ops.push([R.el,'off',false]);return}
     const cs=R.el._cands||[];_wp.copy(R.obj.position);R.par.localToWorld(_wp);const a0=pr(_wp);let ok=null;
     for(const c of (cs.length?cs:[R.obj.position]).slice(0,1))  /* giro 1063 (Pietro: «non voglio che i nomi dei settori continuino a spostarsi»): posto fisso, il migliore; se è coperto il nome si nasconde */{_wp.copy(c);R.par.localToWorld(_wp);const a=pr(_wp),dx=a[0]-a0[0],dy=a[1]-a0[1];
       const q={left:r.left+dx,right:r.right+dx,top:r.top+dy,bottom:r.bottom+dy};if(!gHit(BG,q,0,0)&&!gHit(DG,q,0,0)){ok=[c,q];break}}
@@ -4398,7 +4417,7 @@ function setSysPhase(ph){sysPhase=ph;if(!sysGrp)return;for(const o of sysGrp.chi
 function sysHit(){const hs=ray.intersectObjects(sysPick,false).filter(q=>{for(let o=q.object;o;o=o.parent)if(o.visible===false)return false;return true});return hs.find(q=>q.object.material&&q.object.material.visible!==false&&!(q.object.userData.body&&q.object.userData.body.belt))||hs[0]}
 const _fw=new T.Vector3(),_fs=new T.Vector3();const ray=new T.Raycaster(),mouse=new T.Vector2();let downAt=null;
 // giro 1063: se non c'è un sistema sotto il cursore, la rotta (in un tratto a strisce comune, la prima del gruppo; ripremendo, la successiva)
-const routeHit=()=>{const h=ray.intersectObjects(routePick.filter(m=>m.parent.visible&&m.parent.parent.visible&&m.material.opacity>.2),false)[0];if(!h)return null;const ns=h.object.userData.route;
+const routeHit=()=>{const h=ray.intersectObjects(routePick.filter(m=>{for(let q=m.parent;q;q=q.parent)if(!q.visible)return false;return true}).filter(m=>m.material.opacity>.2),false)[0];if(!h)return null;const ns=h.object.userData.route;
   const cur=pinned&&pinned.route&&ns.includes(pinned.route)?ns[(ns.indexOf(pinned.route)+1)%ns.length]:ns[0];return {route:cur,names:ns}};
 let routeHover=null;
 renderer.domElement.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;mouse.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(mouse,camera);
@@ -4608,9 +4627,9 @@ function instSync(){for(const E of INST){const L=E.L;let n=0;  /* solo i segni v
   const im=E.inst;for(let i=0;i<L.length;i++){const o=L[i];if(_ivis(o))im.setMatrixAt(n++,o.matrixWorld)}im.count=n;im.visible=n>0;im.instanceMatrix.needsUpdate=true}}
 scene.autoUpdate=false;
 const composer=(()=>{const pr=renderer.getPixelRatio();if(!(renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget))return new T.EffectComposer(renderer);
-  const rt=new T.WebGLMultisampleRenderTarget(innerWidth*pr,innerHeight*pr,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});rt.samples=4;rt.texture.name='EffectComposer.rt1';
+  const rt=new T.WebGLMultisampleRenderTarget(innerWidth*pr,innerHeight*pr,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});rt.samples=matchMedia('(pointer:coarse)').matches?2:4;rt.texture.name='EffectComposer.rt1';  /* giro 1554: sul telefono bordi lisci con 2 campioni invece di 4 */
   const c=new T.EffectComposer(renderer,rt);c.setPixelRatio(pr);c.setSize(innerWidth,innerHeight);return c})();composer.addPass(new T.RenderPass(scene,camera));
-const bloom=new T.UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.42,.3,.86);composer.addPass(bloom);{const bs=bloom.setSize.bind(bloom),BK=matchMedia('(pointer:coarse)').matches?.75:1;  /* giro 1548 (PROVA): sul telefono il bagliore si calcola al 75% (è sfocato comunque) */bloom.setSize=(w,h)=>bs(Math.round(Math.min(w,innerWidth)*BK),Math.round(Math.min(h,innerHeight)*BK));bloom.setSize(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio())}  /* giro 1465: bagliore calcolato a risoluzione 1× (è sfocato comunque) */
+const bloom=new T.UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.42,.3,.86);composer.addPass(bloom);{const bs=bloom.setSize.bind(bloom),BK=matchMedia('(pointer:coarse)').matches?.75:1;  /* giro 1548 (PROVA): sul telefono il bagliore si calcola al 75% (è sfocato comunque) */bloom.setSize=(w,h)=>bs(Math.round(Math.min(w,innerWidth)*BK*(window.AQBK||1)),Math.round(Math.min(h,innerHeight)*BK*(window.AQBK||1)));bloom.setSize(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio())}  /* giro 1465: bagliore calcolato a risoluzione 1× (è sfocato comunque) */
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;fitCam();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);labelR.setSize(innerWidth,innerHeight);pend=true});
 
 // ---- animazione: impulsi lungo le rotte, tremolio dell'ologramma, rotazione lenta
@@ -4630,43 +4649,64 @@ function cullHolo(){const c=camera.position,k=c.x.toFixed(1)+','+c.y.toFixed(1)+
   for(const o of holo.children){if(o.isCSS2DObject)continue;if(o._bs===undefined){_bx.setFromObject(o);o._bs=_bx.isEmpty()?null:_bx.getBoundingSphere(new T.Sphere());if(o._bs)o._bs.radius+=3}
     const cl=!!o._bs&&!_frus.intersectsSphere(o._bs);if(cl){nCull++;CULL.push(o)}o._cull=cl}}
 let cluK=null;function cluLOD(dist){const h=cluK?dist>400:dist>430;if(h===cluK)return;cluK=h;for(const so of sysObjs){const s=so.s;if(s.clu||s.neb||s.bh||s.ns||s.sn||s.well||s.pclu||s.wreck||s.poi||s.station)for(const o of so.grp.children)if(!o.isCSS2DObject&&!(o.material&&o.material.visible===false))o.visible=!h}for(const o of OBJX)o.visible=!h}  // giro 1465 (Pietro: «anche per i cluster… anzi per tutti gli oggetti»): a zoom minimo niente ammassi, buchi neri, pulsar, supernove, pozzi, relitti, pianeti, punti d'interesse, stazioni, campi di asteroidi, corridoi
-function farLOD(dist){const far=farK?dist>350:dist>380;if(far===farK)return;farK=far;for(const g of hubGrps)g.visible=!far;for(const p of pulses)p.visible=!far;for(const f of flows)if(f.m)f.m.visible=!far}  // giro 1465: da lontano niente pallini delle tappe né impulsi
+let flowK=null;function farLOD(dist){{const ff=flowK?dist>230:dist>250;if(ff!==flowK){flowK=ff;for(const f of flows)if(f.m)f.m.visible=!ff}}  /* giro 1554 (Pietro): le scie di luce delle rotte compaiono più da vicino (250 invece di 380) */
+  const far=farK?dist>350:dist>380;if(far===farK)return;farK=far;for(const g of hubGrps)g.visible=!far;for(const p of pulses)p.visible=!far}  // giro 1465: da lontano niente pallini delle tappe né impulsi
 const _ng=new Map();
 function nebLOD(dist){const tg=controls.target,k=Math.round(dist*2)+'|'+Math.round(tg.x)+'|'+Math.round(tg.z)+'|'+NEBL.length;if(k===nebK)return;nebK=k;
-  const sm=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v)},fade=1-sm((dist-380)/50),near=dist<=200,R=Math.max(60,dist*1.1);nebFull=0;nebOn=0;
+  const sm=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v)},fade=1-sm((dist-380)/50),near=dist<=200&&AQ.lv<4,R=Math.max(60,dist*1.1);nebFull=0;nebOn=0;
   for(const e of NEBL){if(fade<=.001){e.mesh.visible=false;continue}
     let full=false;if(near){let d=_ng.get(e.grp);if(d===undefined){e.grp.getWorldPosition(_av);d=_av.clone();_ng.set(e.grp,d)}full=Math.hypot(d.x-tg.x,d.z-tg.z)<R}
     if(e.v||e.L===0){e.mesh.visible=true;e.m.uniforms.op.value=(e.v||full?e.op0:Math.min(1,e.op0*1.35))*fade;nebOn++}
     else{e.mesh.visible=full;if(full){e.m.uniforms.op.value=e.op0*fade;nebOn++}}
     if(full&&e.L===0)nebFull++}
   for(const p of NEBP)p.visible=fade>.5&&dist<=250}
+/* giro 1555 (Pietro: «non c'è modo di ottimizzare a seconda del dispositivo?»): qualità adattiva. Mentre si usa la mappa si misura il
+   tempo fra un fotogramma e l'altro; se per ~45 fotogrammi la media supera 26 ms (sotto ~38 al secondo) si scende di un gradino:
+   1 risoluzione ×0,83 · 2 risoluzione 1× · 3 bagliore a metà · 4 bagliore spento e nebulose con meno strati · 5 bordi lisci spenti
+   (solo dopo il bagliore: senza bordi lisci le linee sottili accese dal bagliore si vedrebbero molto di più) · 6 nomi ricontrollati solo da fermi. Non si risale durante la visita; il gradino si ricorda su quel dispositivo e alla visita dopo si
+   riparte da un gradino più su (così, se il telefono va meglio, la qualità torna piano piano) */
+const AQ={lv:0,max:6,win:[],t0:performance.now(),lastCh:0,avg:0};
+function aqApply(lv){AQ.lv=lv;
+  PR_FULL=lv>=2?Math.min(PR_BASE,1):lv>=1?Math.max(1,Math.round(PR_BASE*.83*4)/4):PR_BASE;PR_LOW=Math.min(PR_FULL,1.5);
+  const pr=prMov?PR_LOW:PR_FULL;if(renderer.getPixelRatio()!==pr){renderer.setPixelRatio(pr);composer.setPixelRatio(pr)}
+  const sm=lv>=5?0:(matchMedia('(pointer:coarse)').matches?2:4);for(const rt of [composer.renderTarget1,composer.renderTarget2])if(rt&&rt.samples!==undefined&&rt.samples!==sm){rt.samples=sm;rt.dispose()}
+  window.AQBK=lv>=3?.5:1;bloom.enabled=lv<4;composer.setSize(innerWidth,innerHeight);
+  nebK='';pend=true;texDirty=true;try{localStorage.setItem('holomap-aq',String(lv))}catch(e){}}
+function aqTick(raw,now){if(AQ.gap){AQ.gap=0;return}if(now-AQ.t0<8000||now-AQ.lastCh<3000||document.hidden)return;if(raw>1500){AQ.win.length=0;return}
+  AQ.win.push(raw);if(AQ.win.length<45)return;const a=AQ.win.reduce((x,y)=>x+y,0)/AQ.win.length;AQ.win.length=0;AQ.avg=a;
+  if(a>26&&AQ.lv<AQ.max){aqApply(AQ.lv+1);AQ.lastCh=now}}
+{let sv=0;try{sv=+(localStorage.getItem('holomap-aq')||0)}catch(e){}if(sv>1)aqApply(Math.min(AQ.max,sv-1))}
+if(window.__MEAS)window.__aq={AQ,aqApply,aqTick};
 const PERF={on:false,el:null,acc:{},n:0,t0:performance.now(),worst:0,gpu:null,gq:null,gpuMs:0};
 function perfT(k,ms){if(PERF.on)PERF.acc[k]=(PERF.acc[k]||0)+ms}
 addEventListener('keydown',e=>{const t=(document.activeElement||{}).tagName||'';if(/input|textarea|select/i.test(t)||e.metaKey||e.ctrlKey||e.altKey)return;
-  if(e.key==='p'||e.key==='P'){PERF.on=!PERF.on;if(!PERF.el){PERF.el=document.createElement('div');PERF.el.style.cssText='position:fixed;right:10px;bottom:10px;z-index:99;background:rgba(4,10,18,.88);color:#bfe8ff;font:11px/1.45 ui-monospace,Menlo,monospace;padding:8px 10px;border:1px solid #2b4a66;white-space:pre;pointer-events:none';document.body.appendChild(PERF.el)}
+  if(e.key==='p'||e.key==='P')perfToggle()});
+/* giro 1554 (Pietro: misuratore anche sul telefono): si apre e si chiude anche tenendo premuto il logo per un secondo; sul telefono sta in alto */
+function perfToggle(){{PERF.on=!PERF.on;if(!PERF.el){PERF.el=document.createElement('div');PERF.el.style.cssText='position:fixed;right:10px;'+(isPhone()?'top:calc(56px + env(safe-area-inset-top,0px))':'bottom:10px')+';z-index:99;background:rgba(4,10,18,.88);color:#bfe8ff;font:11px/1.45 ui-monospace,Menlo,monospace;padding:8px 10px;border:1px solid #2b4a66;white-space:pre;pointer-events:none';document.body.appendChild(PERF.el)}
     PERF.el.hidden=!PERF.on;PERF.acc={};PERF.n=0;PERF.worst=0;PERF.t0=performance.now();
-    if(PERF.on&&PERF.gpu===null){const gl=renderer.getContext();PERF.gpu=gl.getExtension('EXT_disjoint_timer_query_webgl2')||false;PERF.gl=gl}}});
+    if(PERF.on&&PERF.gpu===null){const gl=renderer.getContext();PERF.gpu=gl.getExtension('EXT_disjoint_timer_query_webgl2')||false;PERF.gl=gl}}}
+{const b=document.getElementById('brand');let tm=0,lp=false;if(b){b.addEventListener('pointerdown',()=>{lp=false;clearTimeout(tm);tm=setTimeout(()=>{lp=true;perfToggle()},1000)});for(const ev of ['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>clearTimeout(tm));b.addEventListener('click',e=>{if(lp){lp=false;e.stopImmediatePropagation();e.preventDefault()}},true);b.addEventListener('contextmenu',e=>{if(lp||isPhone())e.preventDefault()})}}
 function perfFrame(now,ms){if(!PERF.on)return;PERF.n++;PERF.worst=Math.max(PERF.worst,ms);
   if(now-PERF.t0>700){const n=PERF.n,a=PERF.acc,f=k=>((a[k]||0)/n).toFixed(1).padStart(5);const inf=renderer.info.render;
-    PERF.el.textContent='HOLOMAP · misuratore (tasto P)\n'+(n*1000/(now-PERF.t0)).toFixed(0).padStart(3)+' fotogrammi/s   peggiore '+PERF.worst.toFixed(0)+' ms\n'+
+    PERF.el.textContent='HOLOMAP · misuratore (tasto P o logo premuto)\n'+(n*1000/(now-PERF.t0)).toFixed(0).padStart(3)+' fotogrammi/s   peggiore '+PERF.worst.toFixed(0)+' ms\n'+
       'animazioni   '+f('anim')+' ms\nscena (CPU)  '+f('render')+' ms\nscheda video '+(PERF.gpu?PERF.gpuMs.toFixed(1).padStart(5)+' ms':'  n.d.')+'\nnomi         '+f('labels')+' ms\nnomi: posti  '+f('layout')+' ms\naltro        '+f('other')+' ms\n'+
-      'disegni '+inf.calls+'   triangoli '+(inf.triangles/1000).toFixed(0)+'k\nnebulose: strati '+nebOn+', nubi intere '+nebFull+'\nfuori vista '+nCull+'/'+holo.children.length+'\nrisoluzione '+renderer.getPixelRatio()+'×   distanza '+camDist.toFixed(0);
+      'disegni '+inf.calls+'   triangoli '+(inf.triangles/1000).toFixed(0)+'k\nnebulose: strati '+nebOn+', nubi intere '+nebFull+'\nfuori vista '+nCull+'/'+holo.children.length+'\nrisoluzione '+renderer.getPixelRatio()+'×   distanza '+camDist.toFixed(0)+'\nqualità '+(6-AQ.lv)+'/6'+(AQ.avg?'   media '+AQ.avg.toFixed(0)+' ms':'');
     PERF.acc={};PERF.n=0;PERF.worst=0;PERF.t0=now}}
 function gpuBegin(){if(!PERF.on||!PERF.gpu)return;const gl=PERF.gl;if(PERF.gq){const q=PERF.gq;if(gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE)&&!gl.getParameter(PERF.gpu.GPU_DISJOINT_EXT)){PERF.gpuMs=gl.getQueryParameter(q,gl.QUERY_RESULT)/1e6;gl.deleteQuery(q);PERF.gq=null}else return}
   PERF.gq=gl.createQuery();gl.beginQuery(PERF.gpu.TIME_ELAPSED_EXT,PERF.gq);PERF.gqOpen=true}
 function gpuEnd(){if(PERF.gqOpen){PERF.gl.endQuery(PERF.gpu.TIME_ELAPSED_EXT);PERF.gqOpen=false}}
-const PR_FULL=Math.min(2,devicePixelRatio),PR_LOW=Math.min(PR_FULL,1.5);let prMov=false,ctlDrag=false,lastDraw=0;
+let PR_FULL=Math.min(matchMedia('(pointer:coarse)').matches?1.5:2,devicePixelRatio)/* giro 1554: sul telefono 1,5× da fermo */,PR_LOW=Math.min(PR_FULL,1.5);const PR_BASE=PR_FULL;let prMov=false,ctlDrag=false,lastDraw=0;
 controls.addEventListener('start',()=>{ctlDrag=true});controls.addEventListener('end',()=>{ctlDrag=false});
 let lastCamK='',last=performance.now(),lab=0,lastSig=NaN,moved=0,lastHot=null,lastPin=null;const clock=new T.Clock();
 function frame(now){
-  if(!tween&&!ctlDrag&&!pend&&now-moved>600&&hot===lastHot&&pinned===lastPin&&(now-lastDraw<32||(reduce&&lastDraw>0&&!liftBusy&&!prMov&&!texDirty))){requestAnimationFrame(frame);return}  /* giro 1541: senza animazioni (movimento ridotto) a vista ferma non si ridisegna nulla */  /* giro 1465: a vista ferma al massimo ~30 fotogrammi al secondo */
-  lastDraw=now;texDirty=false;const _f0=performance.now();const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!tween&&!ctlDrag&&!pend&&now-moved>600&&hot===lastHot&&pinned===lastPin&&(now-lastDraw<32||(reduce&&lastDraw>0&&!liftBusy&&!prMov&&!texDirty))){AQ.gap=1;requestAnimationFrame(frame);return}  /* giro 1541: senza animazioni (movimento ridotto) a vista ferma non si ridisegna nulla */  /* giro 1465: a vista ferma al massimo ~30 fotogrammi al secondo */
+  aqTick(now-last,now);lastDraw=now;texDirty=false;const _f0=performance.now();const dt=Math.min(.05,(now-last)/1000);last=now;
   if(!viewer.hidden){requestAnimationFrame(frame);return}  /* giro 1084: con il visore aperto la scena 3D dietro non si disegna (più leggero; chiudendo riparte subito) */
   if(tween){tween.t=Math.min(1,tween.t+dt/1.1);const e=tween.t<.5?2*tween.t*tween.t:1-Math.pow(-2*tween.t+2,2)/2;controls.target.lerpVectors(tween.from[0],tween.to[0],e);camera.position.lerpVectors(tween.from[1],tween.to[1],e);if(tween.t>=1)tween=null}
   camDist=camera.position.distanceTo(controls.target);if(hrGrp.visible&&eraGrp.visible||cwGrp.visible||gcGrp.visible||nrGrp.visible)CWS.value=Math.max(.9,Math.min(6,camDist/110));_pmx.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);_frus.setFromProjectionMatrix(_pmx);if(!sysMode){nebLOD(camDist);farLOD(camDist);cluLOD(camDist);cullHolo()}
   {const mv=!!tween||ctlDrag||now-moved<(prMov?700:250);if(mv!==prMov){prMov=mv;const pr=mv?PR_LOW:PR_FULL;if(pr!==renderer.getPixelRatio()){renderer.setPixelRatio(pr);composer.setPixelRatio(pr)}}}  /* giro 1465: risoluzione ridotta solo mentre ci si muove */
   const _fa=performance.now();
-  if(!reduce&&!farK)for(const f of flows)f.tx.offset.x=(f.tx.offset.x-f.sp*dt)%1;
+  if(!reduce&&flowK===false)for(const f of flows)f.tx.offset.x=(f.tx.offset.x-f.sp*dt)%1;
   if(swMats.length&&eraGrp.visible&&hrGrp.visible){const tt=performance.now()*.001;for(const m of swMats)m.uniforms.t.value=reduce?0:tt}  // giro 1417: Stormwall
   if(!reduce){for(const p of pulses){if(!p.visible||!p.parent||!p.parent.visible||!_frus.intersectsSphere(_sph.set(p.position,4)))continue;const u=p.userData;u.t=(u.t+u.sp*dt*10)%1;if(!(u.t>=0&&u.t<=1))u.t=0;try{p.position.copy(u.curve.getPointAt(u.t))}catch(e){p.visible=false}}
     for(const o of BASESPIN)if(o.visible&&o.parent.visible)o.rotation.y+=dt*.8;
@@ -4695,7 +4735,7 @@ if(secWallMats.length&&secWallMats[0].opacity!==secF)for(const m of secWallMats)
     if(sysMode||k!==lastCamK||pend||now-lab<400){lastCamK=k;labelR.render(scene,camera);labVP.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse)}}
   const _fl2=performance.now();perfT('labels',_fl2-_fl);
   {const c=camera.position,g=controls.target,sg=c.x+c.y*7.3+c.z*13.1+g.x*17.7+g.z*19.9;if(sg!==lastSig){lastSig=sg;moved=now}}
-  sysFrame(dt);if(!sysMode&&now-lab>120&&(pend||now-moved<450||hot!==lastHot||pinned!==lastPin)){lab=now;lastHot=hot;lastPin=pinned;updateLOD();labelR.markDirty();layoutLabels()}  // giro 996: a camera ferma non si rifà nulla
+  sysFrame(dt);if(!sysMode&&now-lab>120&&(pend||now-moved<450||hot!==lastHot||pinned!==lastPin)&&!(AQ.lv>=6&&now-moved<200&&!pend)){lab=now;lastHot=hot;lastPin=pinned;updateLOD();labelR.markDirty();layoutLabels()}  // giro 996: a camera ferma non si rifà nulla
   {const e=performance.now();perfT('layout',e-_fl2);perfFrame(now,e-_f0)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
