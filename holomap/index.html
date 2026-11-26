@@ -3455,8 +3455,8 @@ function tileRoutes(done){const TS=ROUT/TILE_D,todo=LODM.slice(),ne=[];let nt=0,
   ms+=performance.now()-t0;if(todo.length){setTimeout(step,0);return}LODM.length=0;LODM.push(...ne);routeLOD._f=1;lodLo=null;window.__TILES=[nt,Math.round(ms)];done&&done()};step()}
 const TILE_D=3,TILE_MIN=30000;
 SECW.traverse(o=>{if(o.material)secWrap(o.material)});
-function warmGPU(){try{const L=[holo,SECW,...flows.map(f=>f.m),...hubGrps].filter(Boolean),on=[],fc=[];for(const o of L){if(!o.visible){o.visible=true;on.push(o)}}
-  for(const o of [SECW,...flows.map(f=>f.m),...LODM.map(e=>e.m)])if(o)o.traverse(q=>{if(q.frustumCulled){q.frustumCulled=false;fc.push(q)}});const rt=new T.WebGLRenderTarget(4,4),pr=renderer.getRenderTarget(),was=lodLo;renderer.setRenderTarget(rt);
+function warmGPU(){try{const L=[holo,SECW,HUBI,...flows.map(f=>f.m),...hubGrps,...routeObjs.filter(o=>LEG.has(o.r.name)).map(o=>o.grp)].filter(Boolean),on=[],fc=[];for(const o of L){if(!o.visible){o.visible=true;on.push(o)}}
+  for(const o of [SECW,...flows.map(f=>f.m),...LODM.map(e=>e.m),...routeObjs.filter(o=>LEG.has(o.r.name)).map(o=>o.grp)])if(o)o.traverse(q=>{if(q.frustumCulled){q.frustumCulled=false;fc.push(q)}});const rt=new T.WebGLRenderTarget(4,4),pr=renderer.getRenderTarget(),was=lodLo;renderer.setRenderTarget(rt);
   for(const lo of [false,true]){for(const e of LODM)if(e.lo)e.m.geometry=lo?e.lo:e.hi;renderer.render(scene,camera)}
   renderer.setRenderTarget(pr);rt.dispose();for(const e of LODM)if(e.lo)e.m.geometry=was?e.lo:e.hi;for(const q of fc)q.frustumCulled=true;for(const o of on)o.visible=false;
   const hid=[];scene.traverse(o=>{if(!o.visible){o.visible=true;hid.push(o)}});const t0=performance.now();renderer.compile(scene,camera);for(const o of hid)o.visible=false;window.__WARM=performance.now()-t0}catch(e){console.warn('warmGPU',e)}}  /* e i programmi di tutto ciò che compare a zoom diversi (nebulose, sbuffi, getti…) si preparano subito */
@@ -3481,6 +3481,31 @@ for(const h of hubs){const fd=fade(h.x,h.y);if(fd<=0)continue;const g=new T.Grou
   const pil=new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(0,0,0),new T.Vector3(0,top,0)]),new T.LineBasicMaterial({color:0x9fd8ee,transparent:true,opacity:.4*fd}));g.add(pil);
   if(h.junction&&h.junction.name&&h.junction.name!=='Incrocio'){const d=document.createElement('div');d.className='lab node';  // giro 1163: gli incroci senza nome non hanno l'etichetta
 d.innerHTML=`<span>${h.junction.name}</span>`;const o=new T.CSS2DObject(d);o.position.set(0,top+.6,0);g.add(o);h.lab=d;h.labObj=o}}
+
+/* giro 1560 (Pietro: «gli scatti sono quasi tutti nello zoom»; «fai tutto purché non cambi la resa»): i pallini e le aste delle tappe
+   (migliaia, uno o due disegni ciascuno) restano nei loro gruppi ma non si disegnano; li disegnano poche copie a istanze, una per forma
+   e ordine di disegno, con colore e trasparenza di ciascuno. Stesse posizioni (anche l'altezza che cambia con lo zoom), stessi colori */
+const HUBI=new T.Group();holo.add(HUBI);const HUBM=[];let HUBP=null;
+{const G=new Map(),pl=[],hsG=new Set(_hs.values());
+  for(const g of hubGrps)for(const o of g.children){
+    if(o.isMesh&&hsG.has(o.geometry)&&o.position.x===0&&o.position.z===0){const k=o.geometry.uuid+'|'+o.renderOrder;let e=G.get(k);if(!e)G.set(k,e={geo:o.geometry,ro:o.renderOrder,L:[]});e.L.push([g,o])}
+    else if(o.isLine&&!o.isLineSegments&&o.geometry.attributes.position&&o.geometry.attributes.position.count===2)pl.push([g,o])}
+  const opM=(m,cache)=>{const f=m.onBeforeCompile;m.onBeforeCompile=sh=>{if(f&&f!==T.Material.prototype.onBeforeCompile)f(sh);sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aOp;varying float vOp;').replace('#include <project_vertex>','vOp=aOp;\n#include <project_vertex>');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vOp;').replace('#include <color_fragment>','#include <color_fragment>\n\tdiffuseColor.a*=vOp;')};m.customProgramCacheKey=()=>cache;return m};
+  for(const e of G.values()){const n=e.L.length,geo=e.geo.clone(),A=new Float32Array(n);const m=opM(rwM(new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1}),RW_DOT),'hubdot');
+    const im=new T.InstancedMesh(geo,m,n);im.renderOrder=e.ro;im.frustumCulled=false;const B=new Float32Array(n*4);
+    e.L.forEach(([g,o],i)=>{im.setColorAt(i,o.material.color);A[i]=o.material.opacity;B[i*4]=g.position.x;B[i*4+1]=g.position.y;B[i*4+2]=g.position.z;B[i*4+3]=o.position.y;o.layers.disableAll()});
+    geo.setAttribute('aOp',new T.InstancedBufferAttribute(A,1));im.instanceColor.needsUpdate=true;HUBI.add(im);HUBM.push({im,B,n})}
+  if(pl.length){const n=pl.length,P=new Float32Array(n*6),A=new Float32Array(n*2),B=new Float32Array(n*4),geo=new T.BufferGeometry();
+    pl.forEach(([g,o],i)=>{const p=o.geometry.attributes.position.array;B[i*4]=g.position.x;B[i*4+1]=g.position.y;B[i*4+2]=g.position.z;B[i*4+3]=p[4];A[i*2]=A[i*2+1]=o.material.opacity;o.layers.disableAll()});
+    geo.setAttribute('position',new T.BufferAttribute(P,3));geo.setAttribute('aOp',new T.BufferAttribute(A,1));const m=opM(new T.LineBasicMaterial({color:pl[0][1].material.color.getHex(),transparent:true,opacity:1}),'hubpil');
+    const ls=new T.LineSegments(geo,m);ls.frustumCulled=false;HUBI.add(ls);HUBP={ls,P,B,n}}}
+let hubRh=null;function hubInstUpd(rh){if(rh===hubRh)return;hubRh=rh;
+  for(const {im,B,n} of HUBM){const E=im.instanceMatrix.array;for(let i=0;i<n;i++){const o=i*16,b=i*4;E[o]=1;E[o+1]=0;E[o+2]=0;E[o+3]=0;E[o+4]=0;E[o+5]=rh;E[o+6]=0;E[o+7]=0;E[o+8]=0;E[o+9]=0;E[o+10]=1;E[o+11]=0;E[o+12]=B[b];E[o+13]=B[b+1]+rh*B[b+3];E[o+14]=B[b+2];E[o+15]=1}im.instanceMatrix.needsUpdate=true}
+  if(HUBP){const {P,B,n}=HUBP;for(let i=0;i<n;i++){const b=i*4,o=i*6;P[o]=P[o+3]=B[b];P[o+1]=B[b+1];P[o+4]=B[b+1]+rh*B[b+3];P[o+2]=P[o+5]=B[b+2]}HUBP.ls.geometry.attributes.position.needsUpdate=true;HUBP.ls.geometry.computeBoundingSphere()}}
+hubInstUpd(1);
+const LSTALE=[];function liftOne(so,f,rh){const ff=f*(so.rh?rh:1);for(const o of so.lift){if(o.isLine&&!o.userData.pos){o.scale.y=ff}else o.position.y=so.H*ff}}
+function rhOne(so,f,rh){const y=Math.max((so.s.open?2.1:1.5)*f,(so.H-.75)*rh+.45);for(const o of so.lift){if(o.isLine&&!o.userData.pos){o.scale.y=y/so.H}else o.position.y=y}}
 
 // ---- sistemi: colonna di luce e punto luminoso; gli scali escono dal loro esagono
 // giro 1401 (Pietro: «da telefono il sito crasha»): le immagini delle nebulose in memoria video erano ~900 MB; ora si rimpiccioliscono prima di caricarle (telefono 512 px e 10 px/unità, computer 1024 px e 22 px/unità)
@@ -3695,7 +3720,7 @@ for(const s of DATA.systems){
     sp.addEventListener('pointerleave',()=>{if(!pinned&&hot!==so)showCard(hot)});sp.addEventListener('click',e=>{e.stopPropagation();labPick(so)})}
   // giro 953 (Pietro: «i sistemi che non sono parte di una rotta si elevino progressivamente con lo zoom fino all'altezza attuale»)
   if(!s.neb&&!s.cloud&&!s.clu&&!s.well&&!s.pclu&&!s.wreck&&!s.poi&&!myRoutes.length){so.lift=grp.children.filter(o=>o!==grp.children.find(c=>c.geometry&&c.geometry.type==='RingGeometry'));lifters.push(so);so.rh=!!(hub&&hub.ltop)}
-  else if(myRoutes.length&&!s.neb&&!s.cloud&&!s.clu&&!s.well&&!s.pclu&&!s.wreck&&!s.poi){so.lift=grp.children.filter(o=>o!==grp.children.find(c=>c.geometry&&c.geometry.type==='RingGeometry'));rhSys.push(so)}}  // giro 1392: i segnalini dei sistemi sulle rotte scendevano con le quote delle rotte; giro 1464 (Pietro: «sono le rotte a doversi abbassare, non i punti sistema», poi «ora sono troppo alti»): il tondino sta all'altezza dei sistemi senza rotte, e solo se la rotta abbassata è più alta resta appena sopra di lei
+  else if(myRoutes.length&&!s.neb&&!s.cloud&&!s.clu&&!s.well&&!s.pclu&&!s.wreck&&!s.poi){so.lift=grp.children.filter(o=>o!==grp.children.find(c=>c.geometry&&c.geometry.type==='RingGeometry'));rhSys.push(so);so.isRh=true}}  // giro 1392: i segnalini dei sistemi sulle rotte scendevano con le quote delle rotte; giro 1464 (Pietro: «sono le rotte a doversi abbassare, non i punti sistema», poi «ora sono troppo alti»): il tondino sta all'altezza dei sistemi senza rotte, e solo se la rotta abbassata è più alta resta appena sopra di lei
 // giro 978 (Pietro: «se comincia a pesare, ottimizza al massimo: oggetti che compaiono con lo zoom; da vicino solo una porzione
 // della mappa»): da vicino si costruiscono a schermo solo i sistemi attorno al punto guardato (il raggio cresce con la distanza
 // della camera); gli altri diventano un punto di luce in un'unica nuvola. Da lontano i sistemi minori sono solo punti, mentre
@@ -3741,7 +3766,7 @@ let FARL=false;function updateLOD(){const dist=camera.position.distanceTo(contro
   for(const so of sysObjs){const p=so.grp.position,d=Math.hypot(p.x-tg.x,p.z-tg.z),lim=so.kind==='minor'?Rmin:(farS&&so.kind==='stop'&&!so.s.station&&!so.s.poi&&!so.s.well&&!so.s.wreck&&!so.s.pclu&&!so.s.bh&&!so.s.ns&&!so.s.sn?0:Rbig);
     const show=so===hot||so===pinned||so.s.cloud||so.s.neb||so.s.clu||(so.shown?d<lim*1.06+1.5:d<lim);
     if(show===so.shown)continue;so.shown=show;so.grp.visible=show;
-    if(!show&&so.obj.parent)so.grp.remove(so.obj);
+    if(!show&&so.obj.parent){so.grp.remove(so.obj);labelR.markDirty()}
     if(so.dot!==undefined){const c=so.dotCol;if(show)lodC.setXYZ(so.dot,0,0,0);else lodC.setXYZ(so.dot,c.r,c.g,c.b);ch=true}}
   if(ch)lodC.needsUpdate=true}
 _tagR=true;LBT=LR;
@@ -4303,9 +4328,9 @@ const layOk=R=>!R.lay||(R.lay==='era'?(!MACRO&&(inG(R.par,nrGrp)?(ERA==='nr'&&nr
 const sysL=LABS.filter(R=>R.kind==='sys').sort((a,b)=>rank[a.so.kind]-rank[b.so.kind]).concat(LABS.filter(R=>R.kind==='node'));
 const _wp=new T.Vector3();
 function man(R,on,now){  // aggiunge/toglie il nome dalla pagina con la dissolvenza; vero quando il nome è pronto per essere mostrato
-  if(on){R.die=0;if(!R.obj.parent){R.par.add(R.obj);R.el.classList.add('off');R.fresh=true;pend=true;return false}
+  if(on){R.die=0;if(!R.obj.parent){R.par.add(R.obj);labelR.markDirty();R.el.classList.add('off');R.fresh=true;pend=true;return false}
     if(R.fresh){if(R.el.isConnected)R.fresh=false;else{pend=true;return false}}return true}
-  if(R.obj.parent){R.el.classList.add('off');R.el.classList.remove('hot');if(!R.die)R.die=now+320;if(now>=R.die){R.par.remove(R.obj);R.die=0;R.fresh=false}else pend=true}
+  if(R.obj.parent){R.el.classList.add('off');R.el.classList.remove('hot');if(!R.die)R.die=now+320;if(now>=R.die){R.par.remove(R.obj);labelR.markDirty();R.die=0;R.fresh=false}else pend=true}
   return false}
 const _lv=new T.Vector3(),labVP=new T.Matrix4();
 /* giro 1553: leggere innerWidth/innerHeight dopo aver cambiato le classi dei nomi obbligava il browser a rifare subito l'impaginazione di
@@ -4605,7 +4630,7 @@ const rot=document.getElementById('v-rot');rot.onclick=()=>{controls.autoRotate=
 /* giro 1541 (prova prestazioni): i segni dei sistemi (pallino, alone, anello a terra, asta) erano ~2.500 oggetti disegnati uno per uno.
    Restano nella scena come prima (posizioni, salita con lo zoom, comparsa per distanza, tutto come ora) ma non si disegnano: li
    disegnano poche copie «a istanze» (una per forma e materiale) che prima di ogni fotogramma ne copiano posizione e visibilità. */
-const INST=[];const _ivis=o=>{for(let q=o;q;q=q.parent){if(!q.visible)return false;if(q===scene)return true}return false};
+const INST=[];let instDirty=true,instT=0;const _ivis=o=>{for(let q=o;q;q=q.parent){if(!q.visible)return false;if(q===scene)return true}return false};
 {const groups=new Map();
   for(const so of sysObjs)for(const o of so.grp.children){if(!(o.isMesh||o.isSprite||o.isLine)||o.isLineSegments||!o.material||o.material.visible===false||o.material.isShaderMaterial||o.renderOrder!==0||o.onBeforeRender!==T.Object3D.prototype.onBeforeRender||o.material.onBeforeCompile!==T.Material.prototype.onBeforeCompile)continue;
     const k=(o.isSprite?'S':o.isLine?'L':'M')+'|'+(o.isLine?'':o.geometry.uuid)+'|'+o.material.uuid;let L=groups.get(k);if(!L)groups.set(k,L=[]);L.push(o)}
@@ -4647,9 +4672,9 @@ let nebK='',nebFull=0,nebOn=0,farK=null,cullK='',nCull=0;const CULL=[];const _bx
 function cullHolo(){const c=camera.position,k=c.x.toFixed(1)+','+c.y.toFixed(1)+','+c.z.toFixed(1)+','+controls.target.x.toFixed(1)+','+controls.target.z.toFixed(1)+','+holo.children.length;if(k===cullK)return;cullK=k;nCull=0;CULL.length=0;
   for(const o of holo.children){if(o.isCSS2DObject)continue;if(o._bs===undefined){_bx.setFromObject(o);o._bs=_bx.isEmpty()?null:_bx.getBoundingSphere(new T.Sphere());if(o._bs)o._bs.radius+=3}
     const cl=!!o._bs&&!_frus.intersectsSphere(o._bs);if(cl){nCull++;CULL.push(o)}o._cull=cl}}
-let cluK=null;function cluLOD(dist){const h=cluK?dist>400:dist>430;if(h===cluK)return;cluK=h;for(const so of sysObjs){const s=so.s;if(s.clu||s.neb||s.bh||s.ns||s.sn||s.well||s.pclu||s.wreck||s.poi||s.station)for(const o of so.grp.children)if(!o.isCSS2DObject&&!(o.material&&o.material.visible===false))o.visible=!h}for(const o of OBJX)o.visible=!h}  // giro 1465 (Pietro: «anche per i cluster… anzi per tutti gli oggetti»): a zoom minimo niente ammassi, buchi neri, pulsar, supernove, pozzi, relitti, pianeti, punti d'interesse, stazioni, campi di asteroidi, corridoi
+let cluK=null;function cluLOD(dist){const h=cluK?dist>400:dist>430;if(h===cluK)return;cluK=h;instDirty=true;for(const so of sysObjs){const s=so.s;if(s.clu||s.neb||s.bh||s.ns||s.sn||s.well||s.pclu||s.wreck||s.poi||s.station)for(const o of so.grp.children)if(!o.isCSS2DObject&&!(o.material&&o.material.visible===false))o.visible=!h}for(const o of OBJX)o.visible=!h}  // giro 1465 (Pietro: «anche per i cluster… anzi per tutti gli oggetti»): a zoom minimo niente ammassi, buchi neri, pulsar, supernove, pozzi, relitti, pianeti, punti d'interesse, stazioni, campi di asteroidi, corridoi
 let flowK=null;function farLOD(dist){{const ff=flowK?dist>230:dist>250;if(ff!==flowK){flowK=ff;for(const f of flows)if(f.m)f.m.visible=!ff}}  /* giro 1554 (Pietro): le scie di luce delle rotte compaiono più da vicino (250 invece di 380) */
-  const far=farK?dist>350:dist>380;if(far===farK)return;farK=far;for(const g of hubGrps)g.visible=!far;for(const p of pulses)p.visible=!far}  // giro 1465: da lontano niente pallini delle tappe né impulsi
+  const far=farK?dist>350:dist>380;if(far===farK)return;farK=far;instDirty=true;HUBI.visible=!far;for(const g of hubGrps)g.visible=!far;for(const p of pulses)p.visible=!far}  // giro 1465: da lontano niente pallini delle tappe né impulsi
 const _ng=new Map();
 function nebLOD(dist){const tg=controls.target,k=Math.round(dist*2)+'|'+Math.round(tg.x)+'|'+Math.round(tg.z)+'|'+NEBL.length;if(k===nebK)return;nebK=k;
   const sm=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v)},fade=1-sm((dist-380)/50),near=dist<=200&&AQ.lv<4,R=Math.max(60,dist*1.1);nebFull=0;nebOn=0;
@@ -4715,9 +4740,12 @@ function frame(now){
   {const dist=camera.position.distanceTo(controls.target);if(!sysMode){const u=Math.max(0,Math.min(1,Math.log(Math.max(dist,RW_D0)/RW_D0)/Math.log(RW_D1/RW_D0))),us=u*u*(3-2*u);RW.uRS.value=.25+2*us;{let fm=Math.max(0,Math.min(1,(dist-450)/700));fm=fm*fm*(3-2*fm);RW.uRSM.value=RW.uRS.value*(1+1.4*fm);/* giro 1465: niente schiarimento (Pietro: «troppo luminose, così non si vedono i colori»), solo spessore */}RW.uRH.value=.35+.65*us;RW.uT.value=clock.getElapsedTime();{const x=lgFocus&&SECRN.has(lgFocus)?1:Math.max(0,Math.min(1,(900-dist)/200)),a=x*x*(3-2*x);if(a!==SECA.value){SECA.value=a;texDirty=true}SECW.visible=a>.001;routeLOD(dist)}}}
   {const dist=camera.position.distanceTo(controls.target),x=Math.max(0,Math.min(1,(320-dist)/(320-70))),tgt=.08+.92*x*x*(3-2*x),f=liftF<0?tgt:liftF+(tgt-liftF)*Math.min(1,dt*8);
     liftBusy=Math.abs(f-liftF)>.0005||Math.abs(RW.uRH.value-rhNow)>.002;if(liftBusy){liftF=f;rhNow=RW.uRH.value;const rh=rhNow;
-      for(const so of lifters){const ff=f*(so.rh?rh:1);for(const o of so.lift){if(o.isLine&&!o.userData.pos){o.scale.y=ff}else o.position.y=so.H*ff}}
-      for(const so of rhSys){const y=Math.max((so.s.open?2.1:1.5)*f,(so.H-.75)*rh+.45);for(const o of so.lift){if(o.isLine&&!o.userData.pos){o.scale.y=y/so.H}else o.position.y=y}}
-      for(const o of routeObjs)o.grp.scale.y=rh;for(const g of hubGrps)g.scale.y=rh;for(const p of pulses)p.scale.y=2.8*K/rh}
+      /* giro 1560: l'altezza si aggiorna solo per i sistemi visibili e inquadrati; gli altri si segnano e si aggiornano appena entrano in vista
+         (prima di disegnare), così il risultato sullo schermo è lo stesso */
+      for(const so of lifters){if(so.grp&&(so.grp._cull||!so.grp.visible)){if(!so._ls){so._ls=1;LSTALE.push(so)}continue}liftOne(so,f,rh)}
+      for(const so of rhSys){if(so.grp&&(so.grp._cull||!so.grp.visible)){if(!so._ls){so._ls=1;LSTALE.push(so)}continue}rhOne(so,f,rh)}
+      for(const o of routeObjs)o.grp.scale.y=rh;for(const g of hubGrps)g.scale.y=rh;hubInstUpd(rh);instDirty=true;for(const p of pulses)p.scale.y=2.8*K/rh}
+    if(LSTALE.length&&liftF>=0){let w=0;for(let i=0;i<LSTALE.length;i++){const so=LSTALE[i];if(so.grp._cull||!so.grp.visible){LSTALE[w++]=so;continue}so._ls=0;if(so.isRh)rhOne(so,liftF,rhNow);else liftOne(so,liftF,rhNow)}LSTALE.length=w}
     // giro 996: in vista intera i confini interni dei settori si attenuano e compaiono i nomi delle regioni; avvicinandosi il contrario
     const sm=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v)},fs=sm((dist-480)/170),secF=1-.3*fs;  // giro 997: attenuazione più leggera (il tavolo era troppo buio)
     scene.fog.density=Math.min(.0011,.42/dist);  // giro 1168 (Pietro: «a zoom minimo si vedano già i colori delle regioni»): la nebbia era pensata per il tavolo piccolo e da lontano copriva tutto
@@ -4727,14 +4755,14 @@ function frame(now){
 if(secWallMats.length&&secWallMats[0].opacity!==secF)for(const m of secWallMats){m.opacity=secF;m.color.setScalar(secF)}
 }
   const _fr=performance.now();perfT('anim',_fr-_fa);perfT('other',_fa-_f0);
-  controls.update();scene.updateMatrixWorld();instSync();renderer.info.autoReset=false;renderer.info.reset();const _hid=[];if(!sysMode)for(const o of CULL)if(o._cull&&o.visible){o.visible=false;_hid.push(o)}  /* giro 1465: le parti fuori vista non si visitano nemmeno nel disegno (rimesse subito dopo) */
+  controls.update();scene.updateMatrixWorld();if(instDirty||pend||sysMode||now-instT>300){instSync();instDirty=false;instT=now}  /* giro 1560: le copie a istanze si riallineano solo quando qualcosa è cambiato (altezze, soglie, nomi e sistemi aggiornati, azioni) e comunque ogni 0,3 s */renderer.info.autoReset=false;renderer.info.reset();const _hid=[];if(!sysMode)for(const o of CULL)if(o._cull&&o.visible){o.visible=false;_hid.push(o)}  /* giro 1465: le parti fuori vista non si visitano nemmeno nel disegno (rimesse subito dopo) */
   gpuBegin();composer.render();gpuEnd();for(const o of _hid)o.visible=true;const _fl=performance.now();perfT('render',_fl-_fr);
   // giro 1021: sulla galassia i nomi si riposizionano solo se la vista si è mossa o i nomi sono cambiati (prima a ogni fotogramma)
   {const c=camera.position,q=camera.quaternion,k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2)+','+q.x.toFixed(4)+','+q.y.toFixed(4)+','+q.w.toFixed(4)+','+innerWidth+'x'+innerHeight;
     if(sysMode||k!==lastCamK||pend||now-lab<400){lastCamK=k;labelR.render(scene,camera);labVP.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse)}}
   const _fl2=performance.now();perfT('labels',_fl2-_fl);
   {const c=camera.position,g=controls.target,sg=c.x+c.y*7.3+c.z*13.1+g.x*17.7+g.z*19.9;if(sg!==lastSig){lastSig=sg;moved=now}}
-  sysFrame(dt);if(!sysMode&&now-lab>(AQ.lv>=6&&now-moved<200?400:120)&&(pend||now-moved<450||hot!==lastHot||pinned!==lastPin||(AQ.lv>=6&&lab<moved+200))){  /* giro 1559 (Pietro: «quando dezoomo restano le etichette»): al gradino 6 i nomi non si fermano più del tutto durante il movimento, si ricontrollano ogni 0,4 s invece di 0,12 s */  /* giro 1558: al gradino 6 il controllo dopo l'arresto si fa sempre (prima, con fotogrammi lenti, la finestra 200–450 ms poteva saltare e non comparivano nomi né segnalini) */lab=now;lastHot=hot;lastPin=pinned;updateLOD();labelR.markDirty();layoutLabels()}  // giro 996: a camera ferma non si rifà nulla
+  sysFrame(dt);if(!sysMode&&now-lab>(AQ.lv>=6&&now-moved<200?400:120)&&(pend||now-moved<450||hot!==lastHot||pinned!==lastPin||(AQ.lv>=6&&lab<moved+200))){  /* giro 1559 (Pietro: «quando dezoomo restano le etichette»): al gradino 6 i nomi non si fermano più del tutto durante il movimento, si ricontrollano ogni 0,4 s invece di 0,12 s */  /* giro 1558: al gradino 6 il controllo dopo l'arresto si fa sempre (prima, con fotogrammi lenti, la finestra 200–450 ms poteva saltare e non comparivano nomi né segnalini) */lab=now;lastHot=hot;lastPin=pinned;updateLOD();layoutLabels();instDirty=true}  /* giro 1560: l'elenco dei nomi si rifà solo quando un nome entra o esce (in man), non a ogni controllo */  // giro 996: a camera ferma non si rifà nulla
   {const e=performance.now();perfT('layout',e-_fl2);perfFrame(now,e-_f0)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
