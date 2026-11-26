@@ -129,8 +129,30 @@ h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppe
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+<style id="barre-safari">
+/* iPhone (Safari 26): la pagina continua sotto la barra di stato e sotto la barra
+   di Safari. Due strisce trasparenti fisse sui bordi fanno restare trasparenti le
+   barre invece di riempirle col colore di fondo; titolo e testo restano fuori
+   dalla zona della barra di stato. Solo su iPhone/iPad. */
+.barra-safari{display:none}
+@supports (-webkit-touch-callout:none){
+  .barra-safari{display:block;position:fixed;left:0;right:0;height:4px;z-index:2147483646;pointer-events:auto;background-color:transparent}
+  .barra-safari.su{top:0}
+  .barra-safari.giu{bottom:0}
+}
+.masthead{padding-top:calc(38px + env(safe-area-inset-top,0px))}
+.wrap{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+.meta a .freccia{width:.72em;height:.72em;margin-left:.35em;vertical-align:.02em;transition:transform .2s}
+.meta a:hover .freccia{transform:translate(1px,-1px)}
+@media (max-width:560px){
+  .masthead{padding-top:calc(30px + env(safe-area-inset-top,0px))}
+  .wrap{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+}
+</style>
 </head>
 <body>
+<div class="barra-safari su" aria-hidden="true"></div><div class="barra-safari giu" aria-hidden="true"></div>
+
 <div class="wrap">
   <header class="masthead">
     <a class="to-menu" href="/" aria-label="Torna al menu di Cambusa del Falcon">&#8592; Menu</a>
@@ -212,7 +234,7 @@ h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppe
     const d = new Date(n.data), {titolo, corpo, tag} = dividi(n.testo);
     return `<article class="post" id="post-${n.id}">
       <div class="meta"><time datetime="${esc(n.data)}">${fmtData.format(d)} · ${fmtOra.format(d)}</time>
-        <a href="https://t.me/${CANALE}/${n.id}" target="_blank" rel="noopener">Telegram ↗</a></div>
+        <a href="https://t.me/${CANALE}/${n.id}" target="_blank" rel="noopener">Telegram<svg class="freccia" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 9 9 3M4.2 3H9v4.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg></a></div>
       ${htmlFoto(n.foto)}
       ${(titolo||corpo||n.link||tag.length||n.viste) ? `<div class="corpo">
         ${titolo?`<h2 class="titolo">${titolo}</h2>`:""}
