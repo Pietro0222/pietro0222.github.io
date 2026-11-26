@@ -3198,6 +3198,26 @@ const rwR=(geo,R_)=>{geo.setAttribute('aR',new T.BufferAttribute(new Float32Arra
 const rwM=(m,f)=>{m.onBeforeCompile=f||RW_TUBE;return m};
 // giro 1465 (Pietro: «le rotte principali a zoom minimo più visibili e spesse, poi come prima man mano che si zooma»): tubo delle principali con uno spessore proprio
 const RW_TUBE_M=sh=>{RW_TUBE(sh);sh.uniforms.uRS=RW.uRSM},MAJM=[];const majM=(m,mj)=>{if(mj){m.onBeforeCompile=RW_TUBE_M;MAJM.push(m)}return m};
+/* giro 1543: stessa curva Catmull-Rom di three.js (stessi calcoli, stesso ordine), ma i coefficienti di ogni tratto si calcolano una
+   volta sola invece che a ogni punto: i tubi delle rotte escono identici, in metà tempo */
+function fastCR(cv){const P=cv.points,l=P.length,ten=cv.tension,cache=new Map(),tmp=new T.Vector3();
+  const co=(x0,x1,x2,x3)=>{const t0=ten*(x2-x0),t1=ten*(x3-x1);return [x1,t0,-3*x1+3*x2-2*t0-t1,2*x1-2*x2+t0+t1]};
+  cv.getPoint=function(t,target=new T.Vector3()){const p=(l-1)*t;let ip=Math.floor(p),w=p-ip;if(w===0&&ip===l-1){ip=l-2;w=1}
+    let C=cache.get(ip);if(!C){let p0,p3;if(ip>0)p0=P[(ip-1)%l];else{tmp.subVectors(P[0],P[1]).add(P[0]);p0=tmp}const p1=P[ip%l],p2=P[(ip+1)%l];
+      if(ip+2<l)p3=P[(ip+2)%l];else{tmp.subVectors(P[l-1],P[l-2]).add(P[l-1]);p3=tmp}
+      C=[co(p0.x,p1.x,p2.x,p3.x),co(p0.y,p1.y,p2.y,p3.y),co(p0.z,p1.z,p2.z,p3.z)];cache.set(ip,C)}
+    const w2=w*w,w3=w2*w,f=c=>c[0]+c[1]*w+c[2]*w2+c[3]*w3;return target.set(f(C[0]),f(C[1]),f(C[2]))};return cv}
+/* giro 1543: tubo identico a THREE.TubeGeometry (stessi riferimenti di Frenet, stessi punti, stessi calcoli e stesso ordine) scritto
+   direttamente in array tipizzati, senza milioni di inserimenti in liste JS */
+function fastTube(path,e,n,i){const fr=path.computeFrenetFrames(e,false),N=(e+1)*(i+1),P=new Float32Array(N*3),Nm=new Float32Array(N*3),UV=new Float32Array(N*2);let c=new T.Vector3(),k=0;
+  const sn=[],cs=[];for(let t=0;t<=i;t++){const a=t/i*Math.PI*2;sn.push(Math.sin(a));cs.push(-Math.cos(a))}
+  for(let r=0;r<=e;r++){c=path.getPointAt(r/e,c);const l=fr.normals[r],d=fr.binormals[r];
+    for(let t=0;t<=i;t++){const r_=sn[t],s=cs[t];let ox=s*l.x+r_*d.x,oy=s*l.y+r_*d.y,oz=s*l.z+r_*d.z;const L=Math.sqrt(ox*ox+oy*oy+oz*oz)||1,q=1/L;ox*=q;oy*=q;oz*=q;
+      Nm[k]=ox;Nm[k+1]=oy;Nm[k+2]=oz;P[k]=c.x+n*ox;P[k+1]=c.y+n*oy;P[k+2]=c.z+n*oz;k+=3}}
+  k=0;for(let t=0;t<=e;t++)for(let m=0;m<=i;m++){UV[k++]=t/e;UV[k++]=m/i}
+  const I=N-1>65535?new Uint32Array(e*i*6):new Uint16Array(e*i*6);k=0;
+  for(let t=1;t<=e;t++)for(let m=1;m<=i;m++){const a=(i+1)*(t-1)+(m-1),b=(i+1)*t+(m-1),s=(i+1)*t+m,d=(i+1)*(t-1)+m;I[k++]=a;I[k++]=b;I[k++]=d;I[k++]=b;I[k++]=s;I[k++]=d}
+  const g=new T.BufferGeometry();g.setIndex(new T.BufferAttribute(I,1));g.setAttribute('position',new T.BufferAttribute(P,3));g.setAttribute('normal',new T.BufferAttribute(Nm,3));g.setAttribute('uv',new T.BufferAttribute(UV,2));return g}
 const routeObjs=[],routePick=[];
 // giro 1321: le terziarie Legends compaiono solo da vicino (vista di settore) o quando si sceglie la rotta; tubo con anelli, senza guaina di luce
 let lgShow=false,lgFocus=null;
@@ -3347,8 +3367,8 @@ order.forEach((r,ri)=>{const grp=new T.Group();holo.add(grp);const col=routeCol(
         v=sgm.map((q,i)=>{let h=HRr,x=q.x,y=q.y;if(ha!=null&&ha!==HRr)h=ha+(h-ha)*sm(cum[i]/RAMP);if(hb!=null&&hb!==HRr)h=hb+(h-hb)*sm((Lt-cum[i])/RAMP);
           if(oa){const w=1-sm(cum[i]/RAMP);x+=oa[0]*w;y+=oa[1]*w}if(ob){const w=1-sm((Lt-cum[i])/RAMP);x+=ob[0]*w;y+=ob[1]*w}
           if(Math.abs(h-HRr)>1e-3||oa||ob)ramp=true;return P(x,y,h)})}
-      const curve=new T.CatmullRomCurve3(v,false,'catmullrom',.5);
-      const R0=LEG.has(r.name)?.3*.7/3:(r.major?.36:.3)*.7,tube=rwR(new T.TubeGeometry(curve,Math.min(900,sgm.length*3),R0,8,false),R0);
+      const curve=fastCR(new T.CatmullRomCurve3(v,false,'catmullrom',.5));
+      const R0=LEG.has(r.name)?.3*.7/3:(r.major?.36:.3)*.7,tube=rwR(fastTube(curve,Math.min(900,sgm.length*3),R0,8),R0);
       // giro 933 (Pietro: «troppo scure, e non si vede il flusso»): tubo più chiaro e, sopra, una guaina di luce che scorre
       const cb=col.clone().lerp(new T.Color('#ffffff'),.18);
       const pa=tube.attributes.position,C=new Float32Array(pa.count*3);for(let k=0;k<pa.count;k++){const f=fade(pa.getX(k)/S+CX,pa.getZ(k)/S+CY);C[k*3]=cb.r*f;C[k*3+1]=cb.g*f;C[k*3+2]=cb.b*f}
@@ -3359,7 +3379,7 @@ order.forEach((r,ri)=>{const grp=new T.Group();holo.add(grp);const col=routeCol(
         tx.wrapS=tx.wrapT=T.RepeatWrapping;tx.repeat.set(Math.max(1,curve.getLength()/1.6),1);  /* giro 1065: le strisce stanno ferme, il flusso lo fa la guaina di luce (stessa velocità ovunque) */
         const tm=new T.Mesh(tube,majM(rwM(new T.MeshBasicMaterial({map:tx,vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=grp_;routePick.push(tm);grp.add(tm)}
       else if(!LEG.has(r.name)){if(!RUN.m){const tm=new T.Mesh(tube,majM(rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=[r.name];routePick.push(tm);grp.add(tm);RUN.m=tm}RUN.g.push(tube)}
-      else{const tm=new T.Mesh(tube,LEG.has(r.name)?rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.9,blending:T.AdditiveBlending,depthWrite:false}),RW_HOLO):majM(rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=[r.name];routePick.push(tm);grp.add(tm);if(LEG.has(r.name)){const R1=R0*2.8,hg=rwR(new T.TubeGeometry(curve,Math.min(900,sgm.length*3),R1,8,false),R1);hg.setAttribute('color',tube.attributes.color);const hm=new T.Mesh(hg,rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.13,blending:T.AdditiveBlending,depthWrite:false})));hm.renderOrder=tm.renderOrder-.1;grp.add(hm)}}
+      else{const tm=new T.Mesh(tube,LEG.has(r.name)?rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.9,blending:T.AdditiveBlending,depthWrite:false}),RW_HOLO):majM(rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.95,depthWrite:false})),r.major));tm.renderOrder=10+HRr*10;tm.userData.route=[r.name];routePick.push(tm);grp.add(tm);if(LEG.has(r.name)){const R1=R0*2.8,hg=rwR(fastTube(curve,Math.min(900,sgm.length*3),R1,8),R1);hg.setAttribute('color',tube.attributes.color);const hm=new T.Mesh(hg,rwM(new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.13,blending:T.AdditiveBlending,depthWrite:false})));hm.renderOrder=tm.renderOrder-.1;grp.add(hm)}}
       // giro 1065 (Pietro: «rendi più evidenti i flussi delle rotte; ora hanno velocità diverse lungo i tratti»): guaina di luce con tratti
       // luminosi ogni FLOW_P unità che scorrono a FLOW_V unità al secondo su tutte le rotte e su tutti i tratti
       if(!LEG.has(r.name)){const Lc=curve.getLength(),sh=(()=>{/* giro 1541: la guaina ha lo stesso tracciato e gli stessi segmenti del tubo: si ricava dal tubo spostando i vertici lungo la normale (niente secondo calcolo della curva) */const R2=(r.major?.36:.3)*.7*1.32,dR=R2-R0,g=new T.BufferGeometry(),P0=tube.attributes.position.array,N0=tube.attributes.normal.array,PA=new Float32Array(P0.length);for(let i=0;i<PA.length;i++)PA[i]=P0[i]+N0[i]*dR;g.setAttribute('position',new T.BufferAttribute(PA,3));g.setAttribute('normal',tube.attributes.normal.clone());g.setAttribute('uv',tube.attributes.uv.clone());g.setIndex(tube.index.clone());return rwR(g,R2)})(),ftx=flowTex.clone();ftx.needsUpdate=true;ftx.wrapS=ftx.wrapT=T.RepeatWrapping;ftx.repeat.set(Math.max(1,Lc/FLOW_P),1);
@@ -3676,7 +3696,7 @@ _tagR=true;LBT=LR;
       const ns=Math.max(1,Math.ceil(Math.hypot(X1-X0,Y1-Y0)/.25));for(let k=0;k<ns;k++){const x0=X0+(X1-X0)*k/ns,y0=Y0+(Y1-Y0)*k/ns,x1=X0+(X1-X0)*(k+1)/ns,y1=Y0+(Y1-Y0)*(k+1)/ns;
       const a=P(x0,y0),b=P(x1,y1);  // giro 1059 (Pietro: «non mi piace l'interruzione delle pareti; lasciale intere senza buchi»): nessun tratto saltato
       pos.push(a.x,0,a.z,b.x,0,b.z,b.x,H,b.z,a.x,0,a.z,b.x,H,b.z,a.x,H,a.z);uv.push(0,0,1,0,1,1,0,0,1,1,0,1);for(let q=0;q<6;q++)col.push(c.r,c.g,c.b)}}}
-    for(const q of mine)put(q);if(!pos.length)continue;
+    if(!pos.length)continue;  /* giro 1543: l'indice dei tratti già murati (put/near/taken) non serve più dal giro 1059 (nessun tratto saltato) */
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('color',new T.Float32BufferAttribute(col,3));
     /* giro 1541: i muri si raccolgono per gruppo di destinazione (regioni, macroregioni, settori) e si uniscono alla fine: fusione al massimo, l'ordine non conta */
     if(!window.__NOWM){const cat=W.grp===holo?'holo':W.grp===macGrp?'mac':'sec';let q=WALLQ[cat];if(!q){const wm=new T.MeshBasicMaterial({map:wTex,vertexColors:true,transparent:true,side:T.DoubleSide,blending:T.CustomBlending,blendEquation:T.MaxEquation,depthWrite:false});if(cat==='sec')secWallMats.push(wm);const m=new T.Mesh(new T.BufferGeometry(),wm);(cat==='mac'?macGrp:holo).add(m);q=WALLQ[cat]={m,g:[]}}q.g.push(g);continue}
