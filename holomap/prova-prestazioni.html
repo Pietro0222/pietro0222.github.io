@@ -4290,15 +4290,28 @@ function man(R,on,now){  // aggiunge/toglie il nome dalla pagina con la dissolve
   if(R.obj.parent){R.el.classList.add('off');R.el.classList.remove('hot');if(!R.die)R.die=now+320;if(now>=R.die){R.par.remove(R.obj);R.die=0;R.fresh=false}else pend=true}
   return false}
 const _lv=new T.Vector3(),labVP=new T.Matrix4();
-function labProj(R){_lv.setFromMatrixPosition(R.obj.matrixWorld).applyMatrix4(labVP);return [(_lv.x*.5+.5)*innerWidth,(-_lv.y*.5+.5)*innerHeight]}
-function labRect(R){if(R.cw===undefined||R.chot!==R.el.classList.contains('hot')||R.cww!==innerWidth)return null;const [x,y]=labProj(R),l=x+R.ox,t=y+R.oy;return {left:l,top:t,right:l+R.cw,bottom:t+R.chh,width:R.cw}}
-function labMeasure(R){const r=(R.el.firstElementChild||R.el).getBoundingClientRect();if(r.width){const [x,y]=labProj(R);R.ox=r.left-x;R.oy=r.top-y;R.cw=r.width;R.chh=r.height;R.chot=R.el.classList.contains('hot');R.cww=innerWidth}return r}
+/* giro 1553: leggere innerWidth/innerHeight dopo aver cambiato le classi dei nomi obbligava il browser a rifare subito l'impaginazione di
+   tutta la pagina (il costo maggiore del controllo dei nomi): le misure della finestra si tengono in variabili aggiornate al ridimensionamento */
+let VW=innerWidth,VH=innerHeight,VPH=isPhone();addEventListener('resize',()=>{VW=innerWidth;VH=innerHeight;VPH=isPhone()});
+function labProj(R){_lv.setFromMatrixPosition(R.obj.matrixWorld).applyMatrix4(labVP);return [(_lv.x*.5+.5)*VW,(-_lv.y*.5+.5)*VH]}
+function labRect(R){if(R.cw===undefined||R.chot!==R.el.classList.contains('hot')||R.cww!==VW)return null;const [x,y]=labProj(R),l=x+R.ox,t=y+R.oy;return {left:l,top:t,right:l+R.cw,bottom:t+R.chh,width:R.cw}}
+function labMeasure(R){const r=(R.el.firstElementChild||R.el).getBoundingClientRect();if(r.width){const [x,y]=labProj(R);R.ox=r.left-x;R.oy=r.top-y;R.cw=r.width;R.chh=r.height;R.chot=R.el.classList.contains('hot');R.cww=VW}return r}
+/* giro 1553: misura dei nomi di settori, sottosettori e regioni senza leggere la pagina a ogni giro: grandezza e scarto dal punto si misurano
+   una volta (e di nuovo se cambiano scala, finestra o classi), poi il riquadro si ricava dalla proiezione arrotondata come fa il disegno dei nomi */
+function labBox(R){const el=R.el;if(!el.isConnected||el.style.display==='none')return {width:0};const k=layoutLabels._zs+'|'+(layoutLabels._rs||0)+'|'+VW+'x'+VH+'|'+document.body.className+'|'+document.documentElement.className+'|'+el.className.replace(/\boff\b/,'').replace(/\s+/g,' ').trim()+'|'+el.textContent;
+  _lv.setFromMatrixPosition(R.obj.matrixWorld).applyMatrix4(labVP);const x=Math.round(_lv.x*VW/2+VW/2),y=Math.round(-_lv.y*VH/2+VH/2);
+  if(R._bk!==k){const r=el.getBoundingClientRect();if(!r.width)return r;R._bk=k;R._bx=r.left-x;R._by=r.top-y;R._bw=r.width;R._bh=r.height;return r}
+  const l=x+R._bx,t=y+R._by;return {left:l,top:t,right:l+R._bw,bottom:t+R._bh,width:R._bw}}
 function layoutLabels(){const now=performance.now();pend=false;const dist=camera.position.distanceTo(controls.target);{const zs=(Math.round(Math.min(1.8,Math.max(1,(369/dist)**.4))*20)/20).toFixed(2);if(zs!==layoutLabels._zs){layoutLabels._zs=zs;labelR.domElement.style.setProperty('--zs',zs)}}  /* giro 1538 (Pietro: «su Safari il sito scatta quando si zooma»): la grandezza dei nomi dei settori cambia a gradini di 0,05 e solo sul contenitore dei nomi (prima a ogni passo su tutta la pagina: Safari ricalcolava gli stili di tutto) */  // giro 950: crescita più contenuta  // giro 948: i nomi dei settori crescono con lo zoom
   const lv=LVL(dist);
   // giro 966 (Pietro: «le etichette non appaiano oltre una certa distanza»): un nome si mostra solo entro un raggio dal punto guardato
   const far=Math.max(40,dist*.62),tg=controls.target;
   const tooFar=R=>{_wp.copy(R.obj.position);R.par.localToWorld(_wp);return Math.hypot(_wp.x-tg.x,_wp.z-tg.z)>far};
-  const boxes=[],subl=[],cand=[],secc=[];  // giro 1021: prima si decidono i nomi, poi si misurano tutti insieme, poi si scrive (un solo ricalcolo della pagina)
+  const boxes=[],subl=[],cand=[],secc=[];  /* giro 1553 (Pietro: «a rallentare sono le etichette dei settori»): i controlli di sovrapposizione cercano solo nelle celle
+     di 64 px vicine (BG nomi già posati, DG tondini dei sistemi) invece di confrontare ogni nome con tutti: stesse regole, stessi risultati */
+  const CS=64,BG=new Map(),DG=new Map(),gAdd=(G,b)=>{const i0=Math.floor(b.left/CS),i1=Math.floor(b.right/CS),j0=Math.floor(b.top/CS),j1=Math.floor(b.bottom/CS);for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const k=i*65536+j;let a=G.get(k);if(!a)G.set(k,a=[]);a.push(b)}},
+    gHit=(G,r,px,py)=>{const i0=Math.floor((r.left-px)/CS),i1=Math.floor((r.right+px)/CS),j0=Math.floor((r.top-py)/CS),j1=Math.floor((r.bottom+py)/CS);for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const a=G.get(i*65536+j);if(a)for(const q of a)if(r.left<q.right+px&&r.right>q.left-px&&r.top<q.bottom+py&&r.bottom>q.top-py)return true}return false},
+    bAdd=b=>{boxes.push(b);gAdd(BG,b)};  // giro 1021: prima si decidono i nomi, poi si misurano tutti insieme, poi si scrive (un solo ricalcolo della pagina)
   for(const R of LABS){if(R.kind==='sys'||R.kind==='node'||R.kind==='secc')continue;
     const ok=man(R,R.tier<=lv&&lv<=R.max&&!tooFar(R)&&layOk(R),now);R._ok=ok;if(ok&&R.kind!=='reg')R.el.classList.remove('off');  /* giro 1432 (Pietro: «l'etichetta Colonie sfarfalla»): i nomi delle regioni si accendono solo dopo il controllo delle sovrapposizioni, senza spegnersi e riaccendersi a ogni fotogramma */
     if(ok&&R.kind==='subl')subl.push(R)}
@@ -4310,33 +4323,33 @@ function layoutLabels(){const now=performance.now();pend=false;const dist=camera
   // giro 1061 (Pietro: «non appaiono tutti i nomi dei settori»): per i nomi dei settori il raggio attorno al punto guardato è più ampio (tutto lo schermo)
   const farS=Math.max(60,dist*1.15),tooFarS=R=>{_wp.copy(R.obj.position);R.par.localToWorld(_wp);return Math.hypot(_wp.x-tg.x,_wp.z-tg.z)>farS};
   for(const R of LABS){if(R.kind!=='secc')continue;if(man(R,R.tier<=lv&&!tooFarS(R)&&layOk(R),now))secc.push(R)}
-  for(const R of subl){const r=R.el.getBoundingClientRect();if(r.width)boxes.push(r)}
+  for(const R of subl){const r=labBox(R);if(r.width)bAdd(r)}
   // giro 1168 (Pietro: «le etichette sono troppo grandi»): i nomi delle regioni si rimpiccioliscono con il tavolo sullo schermo
   // (6–8,5 px) e, se si toccano, si nasconde quello che viene dopo (riappare avvicinandosi)
-  {const c0=new T.Vector3(0,0,0).applyMatrix4(labVP),c1=new T.Vector3(ROUT,0,0).applyMatrix4(labVP),rpx=Math.abs(c1.x-c0.x)*.5*innerWidth;
+  {const c0=new T.Vector3(0,0,0).applyMatrix4(labVP),c1=new T.Vector3(ROUT,0,0).applyMatrix4(labVP),rpx=Math.abs(c1.x-c0.x)*.5*VW;
     const rs=Math.max(.55,Math.min(1,rpx/520));  /* giro 1169 (Pietro: «ancora troppo grandi»): 4,7–8,5 px */if(Math.abs(rs-(layoutLabels._rs||0))>.01){layoutLabels._rs=rs;document.documentElement.style.setProperty('--rs',rs.toFixed(3))}
-    for(const R of LABS){if(R.kind!=='reg'||!R.obj.parent||!R._ok)continue;const r=R.el.getBoundingClientRect();if(!r.width)continue;
-      const hit=boxes.some(q=>r.left<q.right+3&&r.right>q.left-3&&r.top<q.bottom+2&&r.bottom>q.top-2);
-      if(hit!==R.el.classList.contains('off'))R.el.classList.toggle('off',hit);if(!hit)boxes.push(r)}}
+    for(const R of LABS){if(R.kind!=='reg'||!R.obj.parent||!R._ok)continue;const r=labBox(R);if(!r.width)continue;
+      const hit=gHit(BG,r,3,2);
+      if(hit!==R.el.classList.contains('off'))R.el.classList.toggle('off',hit);if(!hit)bAdd(r)}}
   // giro 1021: la posizione dei nomi dei sistemi già misurati si ricava dalla proiezione (nessuna lettura della pagina); si misurano solo i nuovi
-  const rs=cand.map(([R])=>labRect(R)||labMeasure(R)),rs2=secc.map(R=>R.el.getBoundingClientRect()),ops=[];
-  const PX=isPhone()?12:4,PY=isPhone()?7:2;
+  const rs=cand.map(([R])=>labRect(R)||labMeasure(R)),rs2=secc.map(R=>labBox(R)),ops=[];
+  const PX=VPH?12:4,PY=VPH?7:2;
   cand.forEach(([R,fav],i)=>{const r=rs[i],el=R.el;if(!r.width){ops.push([el,'off',false]);return}
-    const hitBox=boxes.some(q=>r.left<q.right+PX&&r.right>q.left-PX&&r.top<q.bottom+PY&&r.bottom>q.top-PY);
-    const show=fav||!hitBox;ops.push([el,'off',!show],[el,'hot',!!fav]);if(show)boxes.push(r)});
+    const hitBox=gHit(BG,r,PX,PY);
+    const show=fav||!hitBox;ops.push([el,'off',!show],[el,'hot',!!fav]);if(show)bAdd(r)});
   // giro 1062 (Pietro: «nomi di settori che si sovrappongono ai tondini dei sistemi»): i tondini dei sistemi costruiti (in cima
   // all'asta e alla base) sono ostacoli per i nomi dei settori; ogni nome prova i suoi punti di riserva dentro il settore (da
   // sectorfix.py) e prende il primo libero; se nessuno è libero si nasconde
-  const dotB=[],pr=v=>{v.applyMatrix4(labVP);return [(v.x*.5+.5)*innerWidth,(-v.y*.5+.5)*innerHeight,v.z]};
-  if(secc.length)for(const so of sysObjs){if(so.s.cloud||so.s.neb||so.s.clu||!so.shown)continue;const g=so.grp;
-    for(const h of [0,so.lift?so.H*Math.max(liftF,0):so.H]){_wp.set(0,h,0);g.localToWorld(_wp);const [x,y,z]=pr(_wp);if(z>1||x<-40||y<-40||x>innerWidth+40||y>innerHeight+40)continue;const e=h?5:6;dotB.push({left:x-e,right:x+e,top:y-e,bottom:y+e})}}
+  const dotB=[],pr=v=>{v.applyMatrix4(labVP);return [(v.x*.5+.5)*VW,(-v.y*.5+.5)*VH,v.z]};
+  const VE=labVP.elements,IW=VW,IH=VH;if(secc.length)for(const so of sysObjs){if(so.s.cloud||so.s.neb||so.s.clu||!so.shown)continue;const g=so.grp;
+    const M=g.matrixWorld.elements;for(const h of [0,so.lift?so.H*Math.max(liftF,0):so.H]){const wx=M[4]*h+M[12],wy=M[5]*h+M[13],wz=M[6]*h+M[14],iw=1/(VE[3]*wx+VE[7]*wy+VE[11]*wz+VE[15]),x=((VE[0]*wx+VE[4]*wy+VE[8]*wz+VE[12])*iw*.5+.5)*IW,y=(-(VE[1]*wx+VE[5]*wy+VE[9]*wz+VE[13])*iw*.5+.5)*IH,z=(VE[2]*wx+VE[6]*wy+VE[10]*wz+VE[14])*iw;if(z>1||x<-40||y<-40||x>IW+40||y>IH+40)continue;const e=h?5:6;const b={left:x-e,right:x+e,top:y-e,bottom:y+e};dotB.push(b);gAdd(DG,b)}}
   const ovl=(r,q)=>r.left<q.right&&r.right>q.left&&r.top<q.bottom&&r.bottom>q.top;
   secc.forEach((R,i)=>{const r=rs2[i];if(!r.width){ops.push([R.el,'off',false]);return}
     const cs=R.el._cands||[];_wp.copy(R.obj.position);R.par.localToWorld(_wp);const a0=pr(_wp);let ok=null;
     for(const c of (cs.length?cs:[R.obj.position]).slice(0,1))  /* giro 1063 (Pietro: «non voglio che i nomi dei settori continuino a spostarsi»): posto fisso, il migliore; se è coperto il nome si nasconde */{_wp.copy(c);R.par.localToWorld(_wp);const a=pr(_wp),dx=a[0]-a0[0],dy=a[1]-a0[1];
-      const q={left:r.left+dx,right:r.right+dx,top:r.top+dy,bottom:r.bottom+dy};if(!boxes.some(b=>ovl(q,b))&&!dotB.some(b=>ovl(q,b))){ok=[c,q];break}}
+      const q={left:r.left+dx,right:r.right+dx,top:r.top+dy,bottom:r.bottom+dy};if(!gHit(BG,q,0,0)&&!gHit(DG,q,0,0)){ok=[c,q];break}}
     if(ok&&ok[0]!==R.obj.position&&!ok[0].equals(R.obj.position)){R.obj.position.copy(ok[0]);pend=true}
-    ops.push([R.el,'off',!ok]);if(ok)boxes.push(ok[1])});
+    ops.push([R.el,'off',!ok]);if(ok)bAdd(ok[1])});
   for(const [el,c,v] of ops)if(el.classList.contains(c)!==v)el.classList.toggle(c,v)}
 
 // ---- schede
