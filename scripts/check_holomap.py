@@ -5,7 +5,8 @@ Checks:
   1. every data/*.json file listed in the page loader exists, is valid JSON
      and matches the version hash written in index.html (cache busting);
   2. no DATA key is missing or duplicated across the files;
-  3. every file referenced by the image index (PK) exists on disk;
+  3. every file referenced by the image index (PK) exists on disk, and
+     every planet map wider than 1024 px has its 1024x512 preview in i/1k/;
   4. optionally (--against REF): the split data is identical to the data
      embedded in the monolithic index.html of a git revision, e.g. HEAD.
 
@@ -70,6 +71,8 @@ def load_monolithic(ref):
         ["git", "show", f"{ref}:holomap/index.html"],
         cwd=ROOT, capture_output=True, check=True,
     ).stdout.decode("utf-8")
+    if "const DATA=" not in html:
+        sys.exit(f"error: holomap/index.html at {ref} has no inline data, pick an older revision")
     dec = json.JSONDecoder()
     data, _ = dec.raw_decode(html, html.index("const DATA=") + len("const DATA="))
     pk, _ = dec.raw_decode(html, html.index("const PK=") + len("const PK="))
@@ -89,6 +92,51 @@ def check_images(pk):
         ok("all files referenced by the image index exist")
 
 
+def webp_size(path):
+    """Width and height of a .webp file, read from its header."""
+    with open(path, "rb") as f:
+        head = f.read(30)
+    if head[:4] != b"RIFF" or head[8:12] != b"WEBP":
+        return None
+    kind = head[12:16]
+    if kind == b"VP8 ":
+        return (int.from_bytes(head[26:28], "little") & 0x3FFF,
+                int.from_bytes(head[28:30], "little") & 0x3FFF)
+    if kind == b"VP8L":
+        b = int.from_bytes(head[21:25], "little")
+        return (b & 0x3FFF) + 1, ((b >> 14) & 0x3FFF) + 1
+    if kind == b"VP8X":
+        return (int.from_bytes(head[24:27], "little") + 1,
+                int.from_bytes(head[27:30], "little") + 1)
+    return None
+
+
+def check_map_previews(pk):
+    maps = sorted({v for v in pk.values() if isinstance(v, str) and re.fullmatch(r"i/[^/]+-map\.webp", v)})
+    missing, bad = [], []
+    for rel in maps:
+        full = HOLOMAP / rel
+        if not full.exists():
+            continue  # already reported by check_images
+        preview = HOLOMAP / rel.replace("i/", "i/1k/", 1)
+        size = webp_size(full)
+        if preview.exists():
+            if webp_size(preview) != (1024, 512):
+                bad.append(preview.name)
+        elif size and size[0] > 1024:
+            missing.append(full.name)
+    orphans = [p.name for p in (HOLOMAP / "i" / "1k").glob("*.webp") if not (HOLOMAP / "i" / p.name).exists()]
+    if bad:
+        fail(f"{len(bad)} previews are not 1024x512, e.g. {bad[:5]}")
+    if orphans:
+        fail(f"{len(orphans)} previews without the full-size map, e.g. {orphans[:5]}")
+    if missing:
+        # not fatal for the page (it falls back to the full-size map), but worth fixing
+        fail(f"{len(missing)} maps wider than 1024 px have no preview, run scripts/optimize_planet_maps.py")
+    if not (bad or orphans or missing):
+        ok(f"planet map previews in order ({len(maps)} maps)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--against", metavar="REF", help="git revision with the monolithic index.html")
@@ -100,6 +148,7 @@ def main():
         sys.exit(1)
     if pk is not None:
         check_images(pk)
+        check_map_previews(pk)
 
     if args.against:
         ref_data, ref_pk = load_monolithic(args.against)

@@ -3710,7 +3710,14 @@ for(const F of DATA.astFields||[]){const n=F.pts.length,pos=new Float32Array(n*3
 // asteroidi, stazioni, gas della nebulosa se il sistema vi sta dentro. Distanze e grandezze proporzionate ma compresse (stimate).
 const SYS=DATA.sysViews||{};let sysMode=null,sysGrp=null,sysPick=[],sysAnim=[],sysMoonGrps=[],sysSave=null,sysHot=null,sysStarPos=new T.Vector3();
 const NIGHT0=new T.DataTexture(new Uint8Array([0,0,0,255]),1,1);NIGHT0.needsUpdate=true;  // giro 1045: maschera notturna vuota finché non arriva quella del corpo
-const texL=new T.TextureLoader(),texC={},texOf=p=>texC[p]||(texC[p]=PK[p]?(()=>{const t=new T.Texture();pkURL(p).then(u=>texL.load(u,q=>{t.image=q.image;t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.needsUpdate=true})).catch(()=>{});return t})():texL.load(p,t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy()}));  // giro 1050: le mappe generiche stanno nei pacchi
+/* planet map LOD: the light i/1k/<name>-map.webp (1024 px) is loaded first; the full-size map replaces it when the planet
+   covers more than ~300 px on screen (previews made by scripts/optimize_planet_maps.py; missing preview -> full-size map) */
+const texHi=new WeakMap(),texLo=u=>typeof u==='string'&&/^i\/[^/]+-map\.webp$/.test(u)?u.replace(/^i\//,'i/1k/'):null;
+const texL=new T.TextureLoader(),texC={},texOf=p=>texC[p]||(texC[p]=PK[p]?(()=>{const t=new T.Texture();const set=q=>{t.image=q.image;t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.needsUpdate=true};pkURL(p).then(u=>{const lo=texLo(u);if(!lo){texL.load(u,set);return}texL.load(lo,q=>{set(q);texHi.set(t,u)},undefined,()=>texL.load(u,set))}).catch(()=>{});return t})():texL.load(p,t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy()}));
+setInterval(()=>{if(!sysGrp||document.hidden)return;const k=renderer.domElement.clientHeight/(2*Math.tan(camera.fov*Math.PI/360)),sc=new T.Vector3(),w=new T.Vector3();
+  sysGrp.traverseVisible(o=>{const U=o.material&&o.material.uniforms,t=U&&U.map&&U.map.value;if(!t||!texHi.has(t)||!o.geometry.parameters||!o.geometry.parameters.radius)return;
+    const r=o.geometry.parameters.radius*o.getWorldScale(sc).x,d=o.getWorldPosition(w).distanceTo(camera.position);
+    if(d>r&&2*r/d*k>300){const u=texHi.get(t);texHi.delete(t);texL.load(u,q=>{t.image=q.image;t.needsUpdate=true},undefined,()=>{})}})},500);  // giro 1050: le mappe generiche stanno nei pacchi
 const fadeEl=document.createElement('div');fadeEl.id='sysfade';document.body.appendChild(fadeEl);
 const backB=document.createElement('button');backB.className='chip';backB.id='v-back';backB.innerHTML='<span class="ico" aria-hidden="true">‹</span><span class="tx">Torna alla galassia</span>';backB.setAttribute('aria-label','Torna alla galassia');backB.classList.add('backb');backB.hidden=true;
 document.querySelector('.chips').appendChild(backB);
