@@ -290,6 +290,8 @@ body.era-on .reg:not(.era){--rc:#b4c3d0!important}body.era-on[data-era=hr] .reg.
 }
 @media (max-width:380px){.top{--cg:4px}}
 @media (max-width:350px){.top{--cg:3px}}
+
+@media (max-width:700px){#qres{overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}}  /* giro 1549 */
 </style>
 
 <div id="stage" aria-label="Tavolo olografico: un dito per spostarsi, due dita per avvicinare e ruotare"></div>
@@ -4461,6 +4463,16 @@ function qMove(d){if(!qList.length)return;qSel=(qSel+d+qList.length)%qList.lengt
   const li=qRes.querySelector('#qo'+qSel);if(li)li.scrollIntoView({block:'nearest'});qEl.setAttribute('aria-activedescendant','qo'+qSel)}
 function qClose(){qRes.hidden=true;qEl.setAttribute('aria-expanded','false');qBox.classList.remove('open')}
 qEl.addEventListener('input',qDraw);qEl.addEventListener('focus',()=>{if(qEl.value)qDraw()});
+/* giro 1549 (Pietro, telefono: «i risultati più in basso finiscono sotto la tastiera: altezza massima e scorrimento fino in fondo; scorrendo a volte
+   si è mossa la mappa sotto»; «nella barra scrivi solo Cerca»): la tendina arriva al massimo fino al bordo della tastiera (visualViewport) e scorre;
+   lo scorrimento resta nella tendina (in cima e in fondo non passa alla pagina né alla mappa) */
+{const fitQ=()=>{if(!isPhone()){qRes.style.maxHeight='';return}if(qRes.hidden)return;const vv=window.visualViewport,bot=vv?vv.offsetTop+vv.height:innerHeight,t=qRes.getBoundingClientRect().top;qRes.style.maxHeight=Math.max(96,Math.round(bot-t-10))+'px'};
+  qEl.addEventListener('input',fitQ);qEl.addEventListener('focus',()=>setTimeout(fitQ,0));if(window.visualViewport){visualViewport.addEventListener('resize',fitQ);visualViewport.addEventListener('scroll',fitQ)}addEventListener('resize',fitQ);
+  let ly=0;qRes.addEventListener('touchstart',e=>{ly=e.touches[0].clientY;e.stopPropagation()},{passive:true});
+  qRes.addEventListener('touchmove',e=>{e.stopPropagation();const y=e.touches[0].clientY,dy=y-ly;ly=y;const top=qRes.scrollTop<=0,end=qRes.scrollTop+qRes.clientHeight>=qRes.scrollHeight-1;if((dy>0&&top)||(dy<0&&end)||qRes.scrollHeight<=qRes.clientHeight)e.preventDefault()},{passive:false});
+  qBox.addEventListener('touchmove',e=>{if(!qRes.contains(e.target))e.preventDefault()},{passive:false});
+  const ph=()=>{qEl.placeholder=isPhone()?'Cerca':'Cerca sistemi, pianeti, settori, rotte'};ph();matchMedia('(max-width:700px)').addEventListener('change',ph)}
+
 qEl.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();qMove(1)}else if(e.key==='ArrowUp'){e.preventDefault();qMove(-1)}
   else if(e.key==='Enter'){e.preventDefault();if(qSel>=0)qGo(qList[qSel])}else if(e.key==='Escape'){e.stopPropagation();qEl.value='';qClose();qEl.blur()}});
 qRes.addEventListener('pointerdown',e=>e.preventDefault());
