@@ -99,6 +99,15 @@ dd{font-family:var(--f-display);font-weight:600;font-size:24px;line-height:1.2;c
 
 footer{position:relative;z-index:2;border-top:1px solid var(--line);color:var(--ink-dim);font-size:11.5px;letter-spacing:.06em}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:18px;padding-bottom:22px}
+footer .wrap{align-items:center}
+.foot-links{display:flex;align-items:center;gap:16px}
+.foot-links a{display:inline-flex;align-items:center;color:var(--ink-dim);transition:color .2s,filter .2s}
+.foot-contact{font-family:var(--f-display);font-size:12px;letter-spacing:.18em;text-transform:uppercase;padding:6px 12px;border:1px solid var(--line)}
+.foot-contact:hover,.foot-contact:focus-visible{color:var(--void);background:var(--holo);border-color:var(--holo)}
+.foot-social svg{width:20px;height:20px;fill:currentColor}
+.foot-social:hover,.foot-social:focus-visible{color:var(--holo);filter:drop-shadow(0 0 6px rgba(111,217,255,.7))}
+.foot-links a:focus-visible{outline:2px solid var(--holo);outline-offset:3px}
+@media (max-width:560px){footer .wrap{align-items:flex-start}}
 /* sezione notizie (sopra Timeline e HOLOMAP) */
 .news{position:relative;margin:0 0 28px;background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--holo);
   clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
@@ -229,7 +238,7 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
   </div>
 </main>
 
-<footer><div class="wrap"><span>Progetto non ufficiale · Star Wars è un marchio di Lucasfilm Ltd.</span></div></footer>
+<footer><div class="wrap"><span>Progetto non ufficiale · Star Wars è un marchio di Lucasfilm Ltd.</span><nav class="foot-links" aria-label="Contatti e canali"><a class="foot-contact" href="/contatti/">Contact us</a><a class="foot-social" href="https://t.me/starwarsita" target="_blank" rel="noopener" aria-label="Canale Telegram Star Wars ITA" title="Telegram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 3.2 2.9 10.4c-1.1.4-1.1 1.1-.2 1.4l4.8 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.4-1.5zM9.4 13.9l9.2-5.8c.4-.3.8-.1.5.2l-7.9 7.1-.3 3.3-1.5-4.8z"/></svg></a><a class="foot-social" href="https://youtube.com/@starwarslcdf?si=-bQokBsZpRxFeyBZ" target="_blank" rel="noopener" aria-label="Canale YouTube" title="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-4.8 31 31 0 0 0-.5-4.8zM9.7 15.1V8.9L15.5 12l-5.8 3.1z"/></svg></a></nav></div></footer>
 
 <script>
 (function(){
