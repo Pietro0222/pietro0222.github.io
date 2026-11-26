@@ -136,7 +136,10 @@ h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppe
 .barra-safari{display:none}
 @supports (-webkit-touch-callout:none){
   .barra-safari{display:block;position:fixed;left:0;right:0;height:4px;z-index:2147483646;pointer-events:auto;background-color:transparent}
-  .barra-safari.su{top:0}
+  /* in alto Safari riempie comunque la barra di stato con un colore pieno:
+     gli diamo lo stesso colore della cima della pagina, così non si vede la fascia */
+  html{background:#0A101E}
+  .barra-safari.su{top:0;height:calc(env(safe-area-inset-top,0px) + 4px);background-color:#0A101E}
   .barra-safari.giu{bottom:0}
 }
 .masthead{padding-top:calc(38px + env(safe-area-inset-top,0px))}
