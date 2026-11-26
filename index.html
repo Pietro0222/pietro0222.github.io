@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cambusa del Falcon · Timeline e notizie di Star Wars in italiano</title>
 <meta name="description" content="Timeline canonica di Star Wars in ordine cronologico, notizie aggiornate dal canale Star Wars ITA e HOLOMAP, l&#x27;atlante olografico della galassia.">
 <link rel="canonical" href="https://cambusadelfalcon.it/">
@@ -201,6 +201,27 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
 .contatti .mail span{text-box:trim-both cap alphabetic}
 @media (max-width:560px){.contatti .mail{padding:14px 14px}}
 @media (max-width:360px){.contatti .mail{padding:12px 12px}}
+/* iPhone: la pagina continua sotto la barra di stato e sotto la barra di Safari
+   (viewport-fit=cover); testi e tasti restano fuori dalle zone delle barre
+   grazie a env(safe-area-inset-*), che altrove vale 0 */
+html,body{background-color:var(--void)}
+body{min-height:100lvh}
+/* Safari 26 su iPhone: un elemento fisso che tocca il bordo alto o basso fa
+   riempire le barre con un colore pieno (bande). Gli sfondi quindi non sono
+   fissi ma coprono tutta la pagina e scorrono con lei (solo su iPhone/iPad). */
+@supports (-webkit-touch-callout:none){
+  body{position:relative}
+  .table,.scan,.vign{position:absolute;top:0;right:0;bottom:0;left:0;height:auto;min-height:100lvh;overflow:hidden}
+}
+.table,.scan,.vign{min-height:100lvh}
+.hero{padding-top:calc(13vh + env(safe-area-inset-top,0px))}
+footer .wrap{padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+.wrap{padding-left:max(32px,env(safe-area-inset-left,0px));padding-right:max(32px,env(safe-area-inset-right,0px))}
+.contatti{max-height:calc(100svh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+@media (max-width:560px){
+  .hero{padding-top:calc(9vh + env(safe-area-inset-top,0px))}
+  .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+}
 </style>
 </head>
 <body>
@@ -335,7 +356,9 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
   const fmt=new Intl.DateTimeFormat("it-IT",{day:"numeric",month:"long",year:"numeric"});
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   function titolo(html){
-    const d=document.createElement("div"); d.innerHTML=(html||"").split(/<br\s*\/?>/i)[0]; return d.textContent.trim();
+    /* prima riga con del testo (salta righe vuote iniziali); entita' come &amp; decodificate */
+    for(const riga of (html||"").split(/<br\s*\/?>/i)){ const d=document.createElement("div"); d.innerHTML=riga; const t=d.textContent.trim(); if(t) return t; }
+    return "";
   }
   fetch("/notizie/posts.json",{cache:"no-cache"}).then(r=>r.json()).then(d=>{
     const asc=[...d.messaggi].sort((a,b)=>a.id-b.id), out=[];
