@@ -3,7 +3,7 @@
 <head>
 <meta name="robots" content="noindex">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cambusa del Falcon · Timeline e notizie di Star Wars in italiano</title>
 <meta name="description" content="Timeline canonica di Star Wars in ordine cronologico, notizie aggiornate dal canale Star Wars ITA e HOLOMAP, l&#x27;atlante olografico della galassia.">
 <link rel="canonical" href="https://cambusadelfalcon.it/">
@@ -202,6 +202,20 @@ h1,.aur,.mark{animation:rise .9s ease-out both}
 .contatti .mail span{text-box:trim-both cap alphabetic}
 @media (max-width:560px){.contatti .mail{padding:14px 14px}}
 @media (max-width:360px){.contatti .mail{padding:12px 12px}}
+/* iPhone: la pagina continua sotto la barra di stato e sotto la barra di Safari
+   (viewport-fit=cover); testi e tasti restano fuori dalle zone delle barre
+   grazie a env(safe-area-inset-*), che altrove vale 0 */
+html,body{background-color:var(--void)}
+body{min-height:100lvh}
+.table,.scan,.vign{bottom:auto;height:100lvh}
+.hero{padding-top:calc(13vh + env(safe-area-inset-top,0px))}
+footer .wrap{padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+.wrap{padding-left:max(32px,env(safe-area-inset-left,0px));padding-right:max(32px,env(safe-area-inset-right,0px))}
+.contatti{max-height:calc(100svh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+@media (max-width:560px){
+  .hero{padding-top:calc(9vh + env(safe-area-inset-top,0px))}
+  .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+}
 </style>
 </head>
 <body>
