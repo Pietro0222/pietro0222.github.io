@@ -4671,10 +4671,10 @@ function aqApply(lv){AQ.lv=lv;
   const sm=lv>=5?0:(matchMedia('(pointer:coarse)').matches?2:4);for(const rt of [composer.renderTarget1,composer.renderTarget2])if(rt&&rt.samples!==undefined&&rt.samples!==sm){rt.samples=sm;rt.dispose()}
   window.AQBK=lv>=3?.5:1;bloom.enabled=lv<4;composer.setSize(innerWidth,innerHeight);
   nebK='';pend=true;texDirty=true;try{localStorage.setItem('holomap-aq',String(lv))}catch(e){}}
-function aqTick(raw,now){if(AQ.gap){AQ.gap=0;return}if(now-AQ.t0<8000||now-AQ.lastCh<3000||document.hidden)return;if(raw>1500){AQ.win.length=0;return}
+function aqTick(raw,now){if(AQ.pendLv!=null){const l=AQ.pendLv;AQ.pendLv=null;aqApply(l);AQ.lastCh=now}if(AQ.gap){AQ.gap=0;return}if(now-AQ.t0<8000||now-AQ.lastCh<3000||document.hidden)return;if(raw>1500){AQ.win.length=0;return}
   AQ.win.push(raw);if(AQ.win.length<45)return;const a=AQ.win.reduce((x,y)=>x+y,0)/AQ.win.length;AQ.win.length=0;AQ.avg=a;
   if(a>26&&AQ.lv<AQ.max){aqApply(AQ.lv+1);AQ.lastCh=now}}
-{let sv=0;try{sv=+(localStorage.getItem('holomap-aq')||0)}catch(e){}if(sv>1)aqApply(Math.min(AQ.max,sv-1))}
+{let sv=0;try{sv=+(localStorage.getItem('holomap-aq')||0)}catch(e){}if(sv>1)AQ.pendLv=Math.min(AQ.max,sv-1)}  /* giro 1557: il gradino salvato si applica al primo fotogramma (prima si applicava quando PR_FULL non esisteva ancora: «il proiettore non si è acceso») */
 if(window.__MEAS)window.__aq={AQ,aqApply,aqTick};
 const PERF={on:false,el:null,acc:{},n:0,t0:performance.now(),worst:0,gpu:null,gq:null,gpuMs:0};
 function perfT(k,ms){if(PERF.on)PERF.acc[k]=(PERF.acc[k]||0)+ms}
