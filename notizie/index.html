@@ -15,7 +15,6 @@
 <meta property="og:title" content="Notizie Star Wars in italiano · Cambusa del Falcon">
 <meta property="og:description" content="Le ultime notizie su Star Wars in italiano: film, serie TV, videogiochi, libri e fumetti, dal canale Telegram Star Wars ITA.">
 <meta property="og:url" content="https://cambusadelfalcon.it/notizie/">
-<meta name="theme-color" content="#03050B">
 <link rel="preload" href="/timeline/font/barlow-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/timeline/font/saira-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
 <style>
@@ -136,10 +135,9 @@ h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppe
 .barra-safari{display:none}
 @supports (-webkit-touch-callout:none){
   .barra-safari{display:block;position:fixed;left:0;right:0;height:4px;z-index:2147483646;pointer-events:auto;background-color:transparent}
-  /* in alto Safari riempie comunque la barra di stato con un colore pieno:
-     gli diamo lo stesso colore della cima della pagina, così non si vede la fascia */
+  /* in alto nessun colore imposto (come nel menu): Safari lascia vedere la pagina;
+     se ricade sul fondo, e' lo stesso blu scuro della cima della pagina */
   html{background:#0A101E}
-  .barra-safari.su{top:0;height:calc(env(safe-area-inset-top,0px) + 4px);background-color:#0A101E}
   .barra-safari.giu{bottom:0}
 }
 .masthead{padding-top:calc(38px + env(safe-area-inset-top,0px))}
@@ -153,7 +151,7 @@ h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppe
 </style>
 </head>
 <body>
-<div class="barra-safari su" aria-hidden="true"></div><div class="barra-safari giu" aria-hidden="true"></div>
+<div class="barra-safari giu" aria-hidden="true"></div>
 
 <div class="wrap">
   <header class="masthead">
