@@ -1,5 +1,8 @@
+<!doctype html>
+<html lang="it">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta charset="utf-8">
-<title>Tavolo olografico del Nucleo</title>
+<title>HOLOMAP · Cambusa del Falcon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -272,6 +275,7 @@ body.era-on .reg:not(.era){--rc:#b4c3d0!important}body.era-on[data-era=hr] .reg.
   #viewer .vdots i{width:6px;height:6px;border-radius:50%;background:rgba(160,220,255,.35)}#viewer .vdots i.on{background:var(--holo)}
 }
 
+#panel.hov{pointer-events:none}  /* giro 1540: scheda aperta dal passaggio del cursore */
 </style>
 
 <div id="stage" aria-label="Tavolo olografico: un dito per spostarsi, due dita per avvicinare e ruotare"></div>
@@ -4125,7 +4129,7 @@ function exitSystem(){if(!sysMode)return;fadeEl.classList.add('on');viewer.hidde
     holo.visible=true;document.body.classList.remove('insys');labelR.domElement.classList.remove('sysmode');controls.minDistance=sysSave.min;controls.maxDistance=sysSave.max;controls.target.copy(sysSave.t);camera.position.copy(sysSave.p);controls.update();
     backB.hidden=true;nextB.hidden=true;stepB.hidden=true;for(const b of Object.values(chips))b.hidden=false;showCard(null);pend=true;setTimeout(()=>fadeEl.classList.remove('on'),60)},450)}
 backB.onclick=exitSystem;
-function showSysCard(o){tourCur=o||null;panel.classList.remove('idle','shut');panel.classList.remove('xo','rc');const V=SYS[sysMode]||{};
+function showSysCard(o){panel.classList.remove('hov');tourCur=o||null;panel.classList.remove('idle','shut');panel.classList.remove('xo','rc');const V=SYS[sysMode]||{};
   if(o.sys||o.star){const st=o.star||{};panel.innerHTML=`<div class="k">${o.star&&o.star.bh?'Buco nero':(V.kind||'Sistema')}</div><div class="n">${esc(V.name)}${V.alias?` <small class="al">sistema di ${esc(V.alias)}</small>`:''}</div>${aur(o.star&&o.star.url?o.star.url:V.url,V.name)}${V.phases?`<div class="vtabs phtabs">${V.phases.map(([id,l])=>`<button class="chip" data-ph="${id}" aria-pressed="${id===sysPhase}">${esc(l)}</button>`).join('')}</div>`:''}${V.desc?`<p class="d">${esc(V.desc)}</p>`:''}${V.info?info3(V.info):dl(V.facts)}${st.name&&!st.minor?`<div class="k sub">${esc(st.name)}</div>${st.desc?`<p class="d">${esc(st.desc)}</p>`:''}${dl(st.facts)}`:''}${(V.feats||[]).length?`<div class="k sub">Altri luoghi</div><dl>${V.feats.map(f=>`<dt>${esc(f.kind)}</dt><dd>${esc(f.name)}</dd>`).join('')}</dl>`:''}`;return}
   const b=o.body,p=o.parent;panel.innerHTML=`<div class="k">${esc(b.kind)}${p?` di ${esc(p.name)}`:''}</div><div class="n">${esc(b.minor?(b.kind==='Luna'?'Luna non catalogata':'Pianeta non catalogato'):b.name).replace(/-(?=\d)/g,'\u2011')}</div>${b.minor?'':aur(b.url,b.name)}${b.desc?`<p class="d">${esc(b.desc)}</p>`:''}${b.info?info3(b.info):dl(b.facts)}${b.img&&b.img.p?'<div class="hint">Clic per aprire l’immagine</div>':''}`}
 /* giro 1145 (Pietro: «Kortatka e Dybbron III: il "dopo" troppo grande rispetto al "prima"; i pulsanti alla stessa distanza dal sottotitolo aurebesh come nelle schede dei sistemi»): la vista «Dopo» non riempie più il riquadro (era la classe della vecchia vista dalla superficie), tasti come quelli delle fasi */
@@ -4256,9 +4260,10 @@ function showRouteCard(name,names){const r=DATA.routes.find(x=>x.name===name);if
   panel.querySelectorAll('[data-rt]').forEach(b=>b.onclick=e=>{e.stopPropagation();pinned={route:b.dataset.rt,names};showCard(pinned)});
   panel.querySelectorAll('[data-st]').forEach(b=>b.onclick=e=>{e.stopPropagation();const so=byName.get(b.dataset.st);if(so)qGo({t:'sys',name:so.s.name,so})})}
 function lgFold(){if(innerWidth<=1100)document.querySelectorAll('.era-lg.open').forEach(x=>{x.classList.remove('open');const h=x.querySelector('h3');if(h)h.setAttribute('aria-expanded','false')})}  // giro 1480: scheda e legenda non si sovrappongono
-function showFullCard(o){lgFold();const s=o.s,C=CARDS[s.id];if(!C){showCard(o);return}panel.classList.remove('idle','shut');panel.classList.remove('xo','rc');
+function showFullCard(o){panel.classList.toggle('hov',!!o&&o!==pinned);lgFold();const s=o.s,C=CARDS[s.id];if(!C){showCard(o);return}panel.classList.remove('idle','shut');panel.classList.remove('xo','rc');
   panel.classList.toggle('xo',!!(s.open&&SYS[s.id]));panel.innerHTML=`<div class="k">${esc(s.open&&SYS[s.id]?'Sistema esplorabile':C.kind||s.kind||'Sistema')}</div><div class="n">${esc(s.name)}</div>${aur(C.url,s.name)}${s.open&&SYS[s.id]?'<button class="chip enter">Entra nel sistema</button>':''}${eraBlock(s)}${C.desc?C.desc.split(/\n\s*\n/).map(q=>`<p class="d">${esc(q)}</p>`).join(''):''}${info3(C.info)}${C.note?`<p class="d" style="opacity:.72;font-size:.92em">${esc(C.note)}</p>`:''}${(C.bodies||[]).length?`<div class="k sub">Corpi del sistema</div>${C.bodies.map(b=>`<p class="d"><b>${esc(b.name)}</b>${b.kind?` · ${esc(b.kind)}`:''}${b.desc?` — ${esc(b.desc)}`:''}</p>`).join('')}`:''}`}
-function showCard(o){panel.classList.remove('rc','shut');if(o&&o.route){showRouteCard(o.route,o.names);return}panel.classList.toggle('idle',!o);panel.classList.toggle('xo',!!(o&&o.s&&o.s.open&&SYS[o.s.id]));  /* giro 1058: scheda gialla per i sistemi esplorabili */if(!o){panel.innerHTML='<div class="hint">Passa sopra un sistema per leggerne la scheda. Clic per fissarla.</div>';return}
+function showCard(o){panel.classList.toggle('hov',!!o&&o!==pinned);  /* giro 1540 (Pietro: «se il sistema sta dove compare la scheda, la scheda sfarfalla»): la scheda aperta dal solo passaggio del cursore non prende il cursore (ci passa attraverso); diventa cliccabile quando è fissata */
+  panel.classList.remove('rc','shut');if(o&&o.route){showRouteCard(o.route,o.names);return}panel.classList.toggle('idle',!o);panel.classList.toggle('xo',!!(o&&o.s&&o.s.open&&SYS[o.s.id]));  /* giro 1058: scheda gialla per i sistemi esplorabili */if(!o){panel.innerHTML='<div class="hint">Passa sopra un sistema per leggerne la scheda. Clic per fissarla.</div>';return}
   const s=o.s;if(s.corr){panel.innerHTML=`<div class="k">Corridoio iperspaziale</div><div class="n">${s.name}</div>${aur(null,s.name)}<dl><dt>Dove</dt><dd>Attraverso la nebulosa Byrnum Maw, passando per Pijal</dd><dt>Com'è nato</dt><dd>Ancore iperspaziali su Pijal e sulla sua luna stabilizzano un tratto centrale della nebulosa e permettono di attraversarla</dd><dt>Tracciato</dt><dd>Stimato</dd></dl>`;return}
   if(s.bh&&CARDS[s.id]){showFullCard(o);return}  /* giro 1147: i buchi neri mostrano la loro scheda completa */
   panel.innerHTML=`<div class="k">${s.open?'Sistema esplorabile':s.kind}</div><div class="n">${s.name}</div>${aur(SYS[s.id]&&SYS[s.id].url,s.name)}${s.open&&SYS[s.id]?'<button class="chip enter">Entra nel sistema</button>':''}${eraBlock(s)}<dl>
