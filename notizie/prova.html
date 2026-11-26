@@ -138,8 +138,11 @@ h1{margin:0;font:700 clamp(32px,6.2vw,52px)/1 var(--display);text-transform:uppe
   .barra-safari{display:block;position:fixed;left:0;right:0;height:4px;z-index:2147483646;pointer-events:auto;background-color:transparent}
   /* in alto nessun colore imposto (come nel menu): Safari lascia vedere la pagina;
      se ricade sul fondo, e' lo stesso blu scuro della cima della pagina */
-  html{background:#0A101E}
-  body{background-color:#0A101E}  /* Safari prende il colore della barra da qui; la sfumatura sopra resta uguale */
+  html{background:#0A111C}
+  /* la cima della pagina parte dallo stesso colore che Safari mette dietro la barra di stato
+     e sfuma nello sfondo, così la fascia si fonde con la pagina */
+  body{background-image:linear-gradient(180deg,#0A111C 0,#0A111C env(safe-area-inset-top,0px),rgba(10,17,28,0) calc(env(safe-area-inset-top,0px) + 160px)),radial-gradient(circle at 23px 31px,rgba(242,247,255,.42) 0 .65px,transparent .95px),     radial-gradient(circle at 91px 137px,rgba(193,216,250,.3) 0 .7px,transparent 1px),     radial-gradient(circle at 211px 83px,rgba(255,237,207,.24) 0 .75px,transparent 1.1px),     radial-gradient(ellipse 85% 50% at 10% 0%,rgba(38,67,112,.25),transparent 66%),     radial-gradient(ellipse 70% 45% at 95% 60%,rgba(67,39,91,.16),transparent 68%),     linear-gradient(180deg,#080D19 0%,#03050C 40%,#060814 75%,#03050B 100%);background-size:auto,173px 211px,257px 331px,389px 487px,auto,auto,auto}
+  body{background-color:#0A111C}  /* Safari prende il colore della barra da qui; la sfumatura sopra resta uguale */
   .barra-safari.giu{bottom:0}
 }
 .masthead{padding-top:calc(38px + env(safe-area-inset-top,0px))}
