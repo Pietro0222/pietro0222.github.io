@@ -228,6 +228,23 @@ footer .wrap{padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
   .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 }
 </style>
+<style id="tavolo-varianti">
+/* iPhone: gli sfondi coprono tutta la pagina (non sono fissi), quindi il tavolo
+   va agganciato alla prima schermata e la vignettatura ripetuta a ogni schermata,
+   altrimenti il tavolo finisce a meta' pagina e resta nel buio */
+@supports (-webkit-touch-callout:none){
+  .table svg{top:58lvh}
+  .vign{background-size:100% 100lvh;background-repeat:repeat-y}
+}
+/* varianti di prova del tavolo (?sfondo=b oppure ?sfondo=c) */
+html.sfondo-b .table circle[stroke-dasharray]{display:none}
+html.sfondo-b .table g[fill="none"] circle{stroke-opacity:.06}
+html.sfondo-b .table g[fill="none"] circle[r="760"]{stroke-opacity:.18;stroke-width:1}
+html.sfondo-b .table circle[fill]{opacity:.6}
+html.sfondo-b #grid{stroke-opacity:.05}
+html.sfondo-c .table g[transform] > circle,html.sfondo-c .table g[fill="none"],html.sfondo-c #grid{display:none}
+</style>
+<script>{const v=new URLSearchParams(location.search).get("sfondo");if(v==="b"||v==="c")document.documentElement.classList.add("sfondo-"+v)}</script>
 </head>
 <body>
 <div class="table" aria-hidden="true">
