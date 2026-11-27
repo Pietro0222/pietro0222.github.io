@@ -274,6 +274,9 @@ html.sfondo-f .alone.f,html.sfondo-g .alone.g,html.sfondo-h .alone.h{display:blo
 .alone.f svg,.alone.g svg,.alone.h svg{display:block;width:100%;height:auto}
 html.sfondo-i .table g[transform] > circle,html.sfondo-i .table g[fill="none"],html.sfondo-i #grid{display:none}
 .hero{overflow-x:clip}
+/* logo: il bagliore sta sul contenitore e non sull'svg, che Safari ritaglia a un rettangolo */
+.mark svg{filter:none;overflow:visible}
+.mark{filter:drop-shadow(0 0 6px rgba(111,217,255,.75)) drop-shadow(0 0 22px rgba(111,217,255,.35))}
 /* il planetario sta dietro al logo: il suo centro coincide con quello del barile */
 .planetario{display:none;position:absolute;left:50%;top:calc(13vh + env(safe-area-inset-top,0px) + 64px);width:min(980px,215vw);
   transform:translate(-50%,-50%);pointer-events:none;z-index:-1;opacity:.6;
@@ -281,7 +284,12 @@ html.sfondo-i .table g[transform] > circle,html.sfondo-i .table g[fill="none"],h
 .planetario svg{display:block;width:100%;height:auto}
 html.sfondo-i .planetario{display:block}
 @media (max-width:560px){.planetario{width:122vw;top:calc(9vh + env(safe-area-inset-top,0px) + 46px);
-  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,#000 42%,transparent 72%);mask-image:radial-gradient(circle closest-side at 50% 50%,#000 42%,transparent 72%)}}
+  /* due maschere insieme: sfuma verso i bordi e, in alto, sparisce prima della barra di stato
+     (che Safari riempie di colore pieno e taglierebbe i cerchi) */
+  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,#000 42%,transparent 78%),linear-gradient(to bottom,transparent calc(61vw - 9vh - 46px),#000 calc(61vw - 9vh + 34px));
+  -webkit-mask-composite:source-in;
+  mask-image:radial-gradient(circle closest-side at 50% 50%,#000 42%,transparent 78%),linear-gradient(to bottom,transparent calc(61vw - 9vh - 46px),#000 calc(61vw - 9vh + 34px));
+  mask-composite:intersect}}
 </style>
 <script>{const v=new URLSearchParams(location.search).get("sfondo");if(["b","c","d","e","f","g","h","i"].includes(v))document.documentElement.classList.add("sfondo-"+v)}</script>
 </head>
